@@ -1,0 +1,16 @@
+{{define "security"}}
+<h2>DVGA Security</h2>
+<p>Current difficulty level: <b>{{.Difficulty}}</b></p>
+<form method="POST" action="/security">
+<label><input type="radio" name="difficulty" value="easy" {{if eq .Difficulty "Easy"}}checked{{end}} /> Easy</label><br/>
+<label><input type="radio" name="difficulty" value="medium" {{if eq .Difficulty "Medium"}}checked{{end}} /> Medium</label><br/>
+<label><input type="radio" name="difficulty" value="hard" {{if eq .Difficulty "Hard"}}checked{{end}} /> Hard</label><br/><br/>
+<input type="submit" value="Set Difficulty" />
+</form>
+<h3>Difficulty Levels</h3>
+<ul>
+<li><b>Easy</b> — No security measures. Fully exploitable.</li>
+<li><b>Medium</b> — Some security measures that can be bypassed with more skill.</li>
+<li><b>Hard</b> — Properly secured. Represents best practices.</li>
+</ul>
+{{end}}
