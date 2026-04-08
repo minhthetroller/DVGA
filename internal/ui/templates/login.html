@@ -1,0 +1,26 @@
+{{define "login"}}<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Login — DVGA</title>
+<link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+<header>
+<div class="header-inner">
+<h1 class="logo">DVGA</h1>
+<span class="header-subtitle">Damn Vulnerable Go App</span>
+</div>
+</header>
+<div class="login-container">
+<h2>Login</h2>
+{{if .Content}}<div class="error">{{.Content}}</div>{{end}}
+<form method="POST" action="/login">
+<label>Username:<br/><input type="text" name="username" autofocus /></label><br/><br/>
+<label>Password:<br/><input type="password" name="password" /></label><br/><br/>
+<input type="submit" value="Login" />
+</form>
+<p><small>Default credentials: admin / admin</small></p>
+</div>
+</body>
+</html>{{end}}

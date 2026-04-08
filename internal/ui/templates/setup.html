@@ -1,0 +1,12 @@
+{{define "setup"}}
+<h2>Setup / Reset Database</h2>
+<p>Click the button below to reset the database to its default state. This will:</p>
+<ul>
+<li>Delete all current data (users, secrets, comments, tokens)</li>
+<li>Re-create the default test users and seed data</li>
+</ul>
+{{if .Content}}<div class="success">{{.Content}}</div>{{end}}
+<form method="POST" action="/setup">
+<input type="submit" value="Reset Database" onclick="return confirm('Are you sure? All data will be reset.')" />
+</form>
+{{end}}

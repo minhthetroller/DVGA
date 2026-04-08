@@ -1,0 +1,21 @@
+{{define "about"}}
+<h2>About DVGA</h2>
+<p><b>Damn Vulnerable Go App (DVGA)</b> is an educational web application designed to teach web security concepts.</p>
+<h3>Vulnerability Categories</h3>
+<p>DVGA covers the top 5 categories from the <a href="https://owasp.org/Top10/" target="_blank">OWASP Top 10 (2021)</a>:</p>
+<ol>
+<li><b>A01: Broken Access Control</b> — IDOR, Path Traversal, Privilege Escalation</li>
+<li><b>A02: Cryptographic Failures</b> — Data Exposure, Weak Password Storage</li>
+<li><b>A03: Injection</b> — SQL Injection, Blind SQL Injection, Command Injection, XSS (Reflected), XSS (Stored)</li>
+<li><b>A04: Insecure Design</b> — Password Reset, Login Brute Force</li>
+<li><b>A05: Security Misconfiguration</b> — Debug Info, Security Headers</li>
+</ol>
+<h3>Tech Stack</h3>
+<ul>
+<li>Go (with chi router)</li>
+<li>GORM + SQLite</li>
+<li>Docker</li>
+</ul>
+<h3>Disclaimer</h3>
+<p>This application is intentionally vulnerable. It should only be used in controlled environments for educational purposes. Do not deploy on any public-facing server.</p>
+{{end}}

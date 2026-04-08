@@ -1,0 +1,46 @@
+{{define "layout"}}<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>{{.PageTitle}} — DVGA</title>
+<link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+<header>
+<div class="header-inner">
+<h1 class="logo">DVGA</h1>
+<span class="header-subtitle">Damn Vulnerable Go App</span>
+</div>
+</header>
+<div class="container">
+<nav class="sidebar">
+<ul>
+<li><a href="/" {{if eq .ActiveID "home"}}class="active"{{end}}>Home</a></li>
+<li><a href="/setup" {{if eq .ActiveID "setup"}}class="active"{{end}}>Setup / Reset DB</a></li>
+</ul>
+<hr/>
+{{range .Sidebar}}
+<div class="sidebar-category">{{.Name}}</div>
+<ul>
+{{range .Items}}
+<li><a href="{{.URL}}" {{if eq .ID $.ActiveID}}class="active"{{end}}>{{.Name}}</a></li>
+{{end}}
+</ul>
+{{end}}
+<hr/>
+<ul>
+<li><a href="/security" {{if eq .ActiveID "security"}}class="active"{{end}}>DVGA Security</a></li>
+<li><a href="/about" {{if eq .ActiveID "about"}}class="active"{{end}}>About</a></li>
+</ul>
+<hr/>
+<ul>
+<li><a href="/logout">Logout</a></li>
+</ul>
+</nav>
+<main class="content">
+{{.Content}}
+</main>
+</div>
+</body>
+</html>{{end}}

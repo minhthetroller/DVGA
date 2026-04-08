@@ -1,0 +1,21 @@
+{{define "home"}}
+<h2>Welcome to DVGA</h2>
+<p><b>Damn Vulnerable Go App</b> is an intentionally vulnerable web application built with Go.</p>
+<p>Its purpose is to help security professionals and developers learn about common web vulnerabilities in a safe, legal environment.</p>
+<h3>Getting Started</h3>
+<ul>
+<li>Use the sidebar to navigate to different vulnerability modules.</li>
+<li>Go to <a href="/security">DVGA Security</a> to change the difficulty level (Easy, Medium, Hard).</li>
+<li>Current difficulty: <b>{{.Difficulty}}</b></li>
+<li>Logged in as: <b>{{.Username}}</b></li>
+</ul>
+<h3>Vulnerability Categories (OWASP Top 10 — 2021)</h3>
+<ol>
+<li><b>A01</b> — Broken Access Control</li>
+<li><b>A02</b> — Cryptographic Failures</li>
+<li><b>A03</b> — Injection</li>
+<li><b>A04</b> — Insecure Design</li>
+<li><b>A05</b> — Security Misconfiguration</li>
+</ol>
+<p><em>Disclaimer: This application contains intentional vulnerabilities. Do NOT deploy it on a public network.</em></p>
+{{end}}

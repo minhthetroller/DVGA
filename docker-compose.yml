@@ -1,0 +1,11 @@
+services:
+  dvga:
+    build: .
+    ports:
+      - "4280:4280"
+    volumes:
+      - dvga-data:/app/data
+    restart: unless-stopped
+
+volumes:
+  dvga-data:

@@ -1,0 +1,242 @@
+classDiagram
+    class App {
+        - store *Store
+        - sessions *Manager
+        - registry *Registry
+        - chain *Chain
+        - difficulty *Difficulty
+        - handler *Handler
+        + New(dbPath, templatesDir, staticDir) *App
+        + ListenAndServe(addr string) error
+    }
+
+    class Difficulty {
+        <<enumeration>>
+        Easy
+        Medium
+        Hard
+        + String() string
+        + ParseDifficulty(s string) Difficulty
+    }
+
+    class Registry {
+        - factories map[string]ModuleFactory
+        + Register(id string, f ModuleFactory)
+        + Build(id string, d Difficulty) VulnModule
+        + All(d Difficulty) []VulnModule
+        + IDs() []string
+        + Categories(d Difficulty) map
+    }
+
+    class Chain {
+        - decorators []MiddlewareDecorator
+        + Use(m MiddlewareDecorator) *Chain
+        + Apply(VulnModule) VulnModule
+    }
+
+    class Store {
+        - db *gorm.DB
+        + NewStore(dbPath string) *Store
+        + DB() *gorm.DB
+        + AutoMigrate() error
+        + Seed() error
+        + Reset() error
+    }
+
+    class Manager {
+        <<session>>
+        - sessions map[string]*Session
+        - loginAttempts map[string]*AttemptTracker
+        - resetAttempts map[string]*AttemptTracker
+        + Create(userID int, username, role string) string
+        + Get(token string) *Session
+        + Destroy(token string)
+        + RecordLoginAttempt(key string) *AttemptTracker
+        + RecordResetAttempt(key string) *AttemptTracker
+        + ClearLoginAttempts(key string)
+        + ClearResetAttempts(key string)
+    }
+
+    class Session {
+        + UserID int
+        + Username string
+        + Role string
+        + CreatedAt time.Time
+    }
+
+    class AttemptTracker {
+        + Count int
+        + LastFail time.Time
+        + LockUntil time.Time
+    }
+
+    class Handler {
+        <<ui>>
+        - renderer *TemplateRenderer
+        - registry *Registry
+        - chain *Chain
+        - store *Store
+        - sessions *Manager
+        - difficulty *Difficulty
+        + Routes() chi.Router
+    }
+
+    class TemplateRenderer {
+        - templates *template.Template
+        + NewRenderer(dir string) *TemplateRenderer
+        + Render(w io.Writer, name string, data PageData)
+    }
+
+    class ModuleFactory {
+        <<interface>>
+        + Create(d Difficulty) VulnModule
+    }
+
+    class MiddlewareDecorator {
+        <<interface>>
+        + Wrap(inner VulnModule) VulnModule
+    }
+
+    class VulnModule {
+        <<interface>>
+        + ServeHTTP(w ResponseWriter, r *Request)
+        + Meta() ModuleMeta
+    }
+
+    class ModuleMeta {
+        + ID string
+        + Name string
+        + Description string
+        + Category string
+        + Difficulty Difficulty
+        + References []string
+    }
+
+    %% GORM Models
+    class User {
+        + ID uint
+        + Username string
+        + Password string
+        + Role string
+        + SecretQuestion string
+        + SecretAnswer string
+    }
+    class Secret {
+        + ID uint
+        + UserID uint
+        + Title string
+        + Value string
+    }
+    class Comment {
+        + ID uint
+        + Username string
+        + Body string
+        + CreatedAt time.Time
+    }
+    class ResetToken {
+        + ID uint
+        + UserID uint
+        + Token string
+        + CreatedAt time.Time
+        + Used bool
+    }
+
+    %% --- Broken Access Control ---
+    class IDORFactory { + Create(d) VulnModule }
+    class PathTraversalFactory { + Create(d) VulnModule }
+    class PrivescFactory { + Create(d) VulnModule }
+
+    %% --- Cryptographic Failures ---
+    class DataExposureFactory { + Create(d) VulnModule }
+    class WeakPasswdFactory { + Create(d) VulnModule }
+
+    %% --- Injection ---
+    class SQLiFactory { + Create(d) VulnModule }
+    class SQLiBlindFactory { + Create(d) VulnModule }
+    class CmdInjFactory { + Create(d) VulnModule }
+    class XSSReflectedFactory { + Create(d) VulnModule }
+    class XSSStoredFactory { + Create(d) VulnModule }
+
+    %% --- Insecure Design ---
+    class PwdResetFactory { + Create(d) VulnModule }
+    class BruteForceFactory { + Create(d) VulnModule }
+
+    %% --- Security Misconfiguration ---
+    class DebugInfoFactory { + Create(d) VulnModule }
+    class HeadersFactory { + Create(d) VulnModule }
+
+    %% Decorators
+    class LoggerDecorator {
+        - inner VulnModule
+        + Wrap(inner VulnModule) VulnModule
+        + ServeHTTP(w, r)
+        + Meta() ModuleMeta
+    }
+    class DifficultyDecorator {
+        - inner VulnModule
+        - difficulty *Difficulty
+        + Wrap(inner VulnModule) VulnModule
+        + ServeHTTP(w, r)
+        + Meta() ModuleMeta
+    }
+
+    %% ====== Relationships ======
+
+    %% App Composition
+    App *-- Store
+    App *-- Manager
+    App *-- Registry
+    App *-- Chain
+    App *-- Handler
+
+    %% Handler dependencies
+    Handler --> Registry
+    Handler --> Chain
+    Handler --> Store
+    Handler --> Manager
+    Handler --> TemplateRenderer
+
+    %% Store ↔ Models
+    Store --> User
+    Store --> Secret
+    Store --> Comment
+    Store --> ResetToken
+
+    %% Session
+    Manager o-- Session
+    Manager o-- AttemptTracker
+
+    %% Registry & Chain
+    Registry o-- ModuleFactory
+    Chain o-- MiddlewareDecorator
+
+    %% Difficulty usage
+    App ..> Difficulty
+    Registry ..> Difficulty
+    Handler ..> Difficulty
+
+    %% ModuleFactory implementations (14 factories)
+    ModuleFactory <|.. IDORFactory
+    ModuleFactory <|.. PathTraversalFactory
+    ModuleFactory <|.. PrivescFactory
+    ModuleFactory <|.. DataExposureFactory
+    ModuleFactory <|.. WeakPasswdFactory
+    ModuleFactory <|.. SQLiFactory
+    ModuleFactory <|.. SQLiBlindFactory
+    ModuleFactory <|.. CmdInjFactory
+    ModuleFactory <|.. XSSReflectedFactory
+    ModuleFactory <|.. XSSStoredFactory
+    ModuleFactory <|.. PwdResetFactory
+    ModuleFactory <|.. BruteForceFactory
+    ModuleFactory <|.. DebugInfoFactory
+    ModuleFactory <|.. HeadersFactory
+
+    %% Decorator implementations
+    MiddlewareDecorator <|.. LoggerDecorator
+    MiddlewareDecorator <|.. DifficultyDecorator
+    VulnModule <|.. LoggerDecorator
+    VulnModule <|.. DifficultyDecorator
+
+    %% VulnModule ↔ ModuleMeta
+    VulnModule ..> ModuleMeta : returns
+    MiddlewareDecorator ..> VulnModule : wraps

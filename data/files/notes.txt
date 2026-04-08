@@ -1,0 +1,4 @@
+TODO:
+- Fix the SQL injection in the user search
+- Update password hashing to bcrypt
+- Remove debug endpoints before production
