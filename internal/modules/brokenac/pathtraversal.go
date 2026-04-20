@@ -10,29 +10,15 @@ import (
 	"DVGA/internal/core"
 )
 
-// --- Factory ---
-
-type PathTraversalFactory struct{}
-
-func (f *PathTraversalFactory) Create(d core.Difficulty) core.VulnModule {
-	return &PathTraversalModule{difficulty: d}
-}
-
-// --- Module ---
-
-type PathTraversalModule struct {
-	difficulty core.Difficulty
-}
-
 const baseFilesDir = "./data/files"
 
-func (m *PathTraversalModule) Meta() core.ModuleMeta {
+func pathTraversalMeta(d core.Difficulty) core.ModuleMeta {
 	return core.ModuleMeta{
 		ID:          "path-traversal",
 		Name:        "Document Library",
 		Description: "View company documents.",
 		Category:    "Broken Access Control",
-		Difficulty:  m.difficulty,
+		Difficulty:  d,
 		References: []string{
 			"https://owasp.org/www-community/attacks/Path_Traversal",
 			"https://owasp.org/Top10/A01_2021-Broken_Access_Control/",
@@ -46,70 +32,63 @@ func (m *PathTraversalModule) Meta() core.ModuleMeta {
 	}
 }
 
-func (m *PathTraversalModule) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func servePathTraversal(m *BrokenACModule, w http.ResponseWriter, r *http.Request) {
 	filename := r.FormValue("file")
 	if filename == "" {
-		fmt.Fprint(w, m.renderForm(""))
+		fmt.Fprint(w, ptRenderForm(""))
 		return
 	}
-
 	switch m.difficulty {
 	case core.Easy:
-		m.serveEasy(w, filename)
+		ptEasy(w, filename)
 	case core.Medium:
-		m.serveMedium(w, filename)
+		ptMedium(w, filename)
 	case core.Hard:
-		m.serveHard(w, filename)
+		ptHard(w, filename)
 	}
 }
 
-func (m *PathTraversalModule) serveEasy(w http.ResponseWriter, filename string) {
-	// VULNERABLE: no sanitization at all
-	path := baseFilesDir + "/" + filename
-	data, err := os.ReadFile(path)
+func ptEasy(w http.ResponseWriter, filename string) {
+	data, err := os.ReadFile(baseFilesDir + "/" + filename)
 	if err != nil {
-		fmt.Fprint(w, m.renderForm(`<div class="error">File not found.</div>`))
+		fmt.Fprint(w, ptRenderForm(`<div class="error">File not found.</div>`))
 		return
 	}
-	fmt.Fprint(w, m.renderForm("<pre>"+string(data)+"</pre>"))
+	fmt.Fprint(w, ptRenderForm("<pre>"+string(data)+"</pre>"))
 }
 
-func (m *PathTraversalModule) serveMedium(w http.ResponseWriter, filename string) {
-	// PARTIALLY VULNERABLE: strips ../ once
+func ptMedium(w http.ResponseWriter, filename string) {
 	sanitized := strings.ReplaceAll(filename, "../", "")
-	path := baseFilesDir + "/" + sanitized
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(baseFilesDir + "/" + sanitized)
 	if err != nil {
-		fmt.Fprint(w, m.renderForm(`<div class="error">File not found.</div>`))
+		fmt.Fprint(w, ptRenderForm(`<div class="error">File not found.</div>`))
 		return
 	}
-	fmt.Fprint(w, m.renderForm("<pre>"+string(data)+"</pre>"))
+	fmt.Fprint(w, ptRenderForm("<pre>"+string(data)+"</pre>"))
 }
 
-func (m *PathTraversalModule) serveHard(w http.ResponseWriter, filename string) {
-	// SECURE: filepath.Clean + verify within base directory
+func ptHard(w http.ResponseWriter, filename string) {
 	absBase, _ := filepath.Abs(baseFilesDir)
 	cleaned := filepath.Clean(filepath.Join(baseFilesDir, filename))
 	absCleaned, _ := filepath.Abs(cleaned)
-
 	if !strings.HasPrefix(absCleaned, absBase+string(os.PathSeparator)) {
-		fmt.Fprint(w, m.renderForm(`<div class="error">File not found.</div>`))
+		fmt.Fprint(w, ptRenderForm(`<div class="error">File not found.</div>`))
 		return
 	}
 	data, err := os.ReadFile(absCleaned)
 	if err != nil {
-		fmt.Fprint(w, m.renderForm(`<div class="error">File not found.</div>`))
+		fmt.Fprint(w, ptRenderForm(`<div class="error">File not found.</div>`))
 		return
 	}
-	fmt.Fprint(w, m.renderForm("<pre>"+string(data)+"</pre>"))
+	fmt.Fprint(w, ptRenderForm("<pre>"+string(data)+"</pre>"))
 }
 
-func (m *PathTraversalModule) renderForm(output string) string {
+func ptRenderForm(output string) string {
 	html := `<div class="vuln-form">
 <h3>Document Library</h3>
 <p>Select a document to view:</p>
 <form method="GET">
-<label>Document: 
+<label>Document:
 <select name="file">
 <option value="">-- select --</option>
 <option value="readme.txt">Company Readme</option>
@@ -130,3 +109,4 @@ func (m *PathTraversalModule) renderForm(output string) string {
 	}
 	return html
 }
+

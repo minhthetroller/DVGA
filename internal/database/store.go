@@ -29,5 +29,16 @@ func (s *Store) DB() *gorm.DB {
 
 // AutoMigrate creates/updates all tables from GORM models.
 func (s *Store) AutoMigrate() error {
-	return s.db.AutoMigrate(&User{}, &Secret{}, &Comment{}, &ResetToken{})
+	return s.db.AutoMigrate(
+		&User{},
+		&Secret{},
+		&Comment{},
+		&ResetToken{},
+		&Order{},
+		&Document{},
+		&Invoice{},
+		&ApiToken{},
+		&Notification{},
+	)
 }
+

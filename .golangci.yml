@@ -1,0 +1,34 @@
+run:
+  timeout: 5m
+  tests: true
+
+linters:
+  disable-all: true
+  enable:
+    - govet       # catches suspicious code constructs (printf mismatches, unreachable, etc.)
+    - staticcheck # SA: deprecated API usage, unreachable code, incorrect calls
+    - unused      # reports unused exported identifiers
+    - ineffassign # detects assignments whose result is never used
+    - gosimple    # simplification suggestions (subset of staticcheck)
+    - typecheck   # mandatory: ensures all code compiles
+
+linters-settings:
+  staticcheck:
+    checks:
+      - "all"
+      - "-SA1006"  # allow printf with no args in fmt.Fprint patterns used throughout codebase
+      - "-SA9003"  # allow empty branches used as documentation stubs
+
+issues:
+  exclude-rules:
+    # Test helpers often ignore errors intentionally
+    - path: "_test\\.go$"
+      linters:
+        - errcheck
+    # Test utility files may have unused exported helpers (used across test packages)
+    - path: "test/testutil/"
+      linters:
+        - unused
+  # Show all issues; do not cap at 50
+  max-issues-per-linter: 0
+  max-same-issues: 0

@@ -11,30 +11,13 @@ import (
 	"DVGA/internal/database"
 )
 
-// --- Factory ---
-
-type XSSStoredFactory struct {
-	store *database.Store
-}
-
-func (f *XSSStoredFactory) Create(d core.Difficulty) core.VulnModule {
-	return &XSSStoredModule{difficulty: d, store: f.store}
-}
-
-// --- Module ---
-
-type XSSStoredModule struct {
-	difficulty core.Difficulty
-	store      *database.Store
-}
-
-func (m *XSSStoredModule) Meta() core.ModuleMeta {
+func xssStoredMeta(d core.Difficulty) core.ModuleMeta {
 	return core.ModuleMeta{
 		ID:          "xss-stored",
 		Name:        "Customer Reviews",
 		Description: "Read and write product reviews.",
 		Category:    "Injection",
-		Difficulty:  m.difficulty,
+		Difficulty:  d,
 		References: []string{
 			"https://owasp.org/Top10/A03_2021-Injection/",
 			"https://owasp.org/www-community/attacks/xss/",
@@ -48,22 +31,21 @@ func (m *XSSStoredModule) Meta() core.ModuleMeta {
 	}
 }
 
-func (m *XSSStoredModule) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func serveXSSStored(m *InjectionModule, w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodPost {
-		m.handlePost(w, r)
+		xssStoredPost(m, w, r)
 		return
 	}
-	m.serveList(w)
+	xssStoredList(m, w)
 }
 
-func (m *XSSStoredModule) handlePost(w http.ResponseWriter, r *http.Request) {
+func xssStoredPost(m *InjectionModule, w http.ResponseWriter, r *http.Request) {
 	name := r.FormValue("name")
 	body := r.FormValue("review")
 	if name == "" || body == "" {
-		fmt.Fprint(w, m.renderForm("Name and review are required.", ""))
+		fmt.Fprint(w, xssStoredRenderForm("Name and review are required.", ""))
 		return
 	}
-
 	var storedBody string
 	switch m.difficulty {
 	case core.Easy:
@@ -76,44 +58,46 @@ func (m *XSSStoredModule) handlePost(w http.ResponseWriter, r *http.Request) {
 	case core.Hard:
 		storedBody = body
 	}
-
 	m.store.DB().Create(&database.Comment{
 		Username:  name,
 		Body:      storedBody,
 		CreatedAt: time.Now(),
 	})
-	m.serveList(w)
+	xssStoredList(m, w)
 }
 
-func (m *XSSStoredModule) serveList(w http.ResponseWriter) {
+func xssStoredList(m *InjectionModule, w http.ResponseWriter) {
 	var comments []database.Comment
 	m.store.DB().Order("created_at desc").Find(&comments)
 
 	output := ""
 	if len(comments) == 0 {
-		output += "<p>No reviews yet. Be the first to leave one!</p>"
+		output = "<p>No reviews yet. Be the first to leave one!</p>"
 	} else {
 		for _, c := range comments {
 			var body string
 			switch m.difficulty {
-			case core.Easy:
-				body = c.Body
-			case core.Medium:
+			case core.Easy, core.Medium:
 				body = c.Body
 			case core.Hard:
 				body = template.HTMLEscapeString(c.Body)
 				w.Header().Set("Content-Security-Policy", "script-src 'self'")
 			}
-			output += fmt.Sprintf(`<div class="comment" style="border:1px solid #ddd;padding:0.75rem;margin-bottom:0.5rem;border-radius:4px">
+			output += fmt.Sprintf(
+				`<div class="comment" style="border:1px solid #ddd;padding:0.75rem;margin-bottom:0.5rem;border-radius:4px">
 <p><strong>%s</strong> <small style="color:#888">%s</small></p>
 <p>%s</p>
-</div>`, template.HTMLEscapeString(c.Username), c.CreatedAt.Format("Jan 2, 2006 3:04 PM"), body)
+</div>`,
+				template.HTMLEscapeString(c.Username),
+				c.CreatedAt.Format("Jan 2, 2006 3:04 PM"),
+				body,
+			)
 		}
 	}
-	fmt.Fprint(w, m.renderForm("", output))
+	fmt.Fprint(w, xssStoredRenderForm("", output))
 }
 
-func (m *XSSStoredModule) renderForm(errMsg, output string) string {
+func xssStoredRenderForm(errMsg, output string) string {
 	html := `<div class="vuln-form">
 <h3>Customer Reviews</h3>
 <form method="POST">
@@ -130,3 +114,5 @@ func (m *XSSStoredModule) renderForm(errMsg, output string) string {
 	}
 	return html
 }
+
+

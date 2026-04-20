@@ -9,6 +9,11 @@ import (
 	"DVGA/internal/core"
 	"DVGA/internal/database"
 	"DVGA/internal/middleware"
+	"DVGA/internal/modules/apisec/bfla"
+	"DVGA/internal/modules/apisec/bola"
+	"DVGA/internal/modules/apisec/bopla"
+	"DVGA/internal/modules/apisec/brokenauth"
+	"DVGA/internal/modules/apisec/resource"
 	"DVGA/internal/modules/brokenac"
 	"DVGA/internal/modules/crypto"
 	"DVGA/internal/modules/injection"
@@ -69,6 +74,11 @@ func New(dbPath, templatesDir, staticDir string) (*App, error) {
 	injection.RegisterAll(registry, store)
 	insecuredesign.RegisterAll(registry, store, sessions)
 	misconfig.RegisterAll(registry, store)
+	bola.RegisterAll(registry, store, sessions)
+	brokenauth.RegisterAll(registry, store, sessions)
+	bopla.RegisterAll(registry, store, sessions)
+	resource.RegisterAll(registry, store, sessions)
+	bfla.RegisterAll(registry, store, sessions)
 
 	// Decorator chain
 	chain := core.NewChain()
