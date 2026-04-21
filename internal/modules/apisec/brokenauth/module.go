@@ -1,3 +1,4 @@
+// Package brokenauth implements the Broken Authentication API vulnerability module.
 package brokenauth
 
 import (

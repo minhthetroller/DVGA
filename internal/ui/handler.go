@@ -1,3 +1,4 @@
+// Package ui serves static assets and template-rendered HTML pages.
 package ui
 
 import (

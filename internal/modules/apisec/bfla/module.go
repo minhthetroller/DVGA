@@ -1,3 +1,4 @@
+// Package bfla implements the Broken Function Level Authorization (BFLA) API vulnerability module.
 package bfla
 
 import (

@@ -1,3 +1,4 @@
+// Package bola implements the Broken Object Level Authorization (BOLA) API vulnerability module.
 package bola
 
 import (

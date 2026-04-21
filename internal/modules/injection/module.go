@@ -1,3 +1,4 @@
+// Package injection implements injection vulnerability scenarios (SQLi, CMDi, XSS).
 package injection
 
 import (

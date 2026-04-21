@@ -1,3 +1,4 @@
+// Package middleware contains HTTP middleware used by the DVGA router.
 package middleware
 
 import (

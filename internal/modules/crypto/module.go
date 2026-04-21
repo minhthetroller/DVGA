@@ -1,3 +1,4 @@
+// Package crypto implements the Cryptographic Failures vulnerability module.
 package crypto
 
 import (

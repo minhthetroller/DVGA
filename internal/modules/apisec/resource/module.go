@@ -1,3 +1,4 @@
+// Package resource implements the Unrestricted Resource Consumption API vulnerability module.
 package resource
 
 import (

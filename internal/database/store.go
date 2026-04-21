@@ -37,7 +37,7 @@ func (s *Store) AutoMigrate() error {
 		&Order{},
 		&Document{},
 		&Invoice{},
-		&ApiToken{},
+		&APIToken{},
 		&Notification{},
 	)
 }

@@ -1,3 +1,4 @@
+// Package misconfig implements Security Misconfiguration vulnerability scenarios.
 package misconfig
 
 import (

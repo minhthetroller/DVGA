@@ -1,3 +1,4 @@
+// Package app wires together all modules, middleware, and the HTTP router to build the DVGA server.
 package app
 
 import (

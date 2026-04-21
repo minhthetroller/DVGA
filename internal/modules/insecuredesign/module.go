@@ -1,3 +1,4 @@
+// Package insecuredesign implements Insecure Design vulnerability scenarios.
 package insecuredesign
 
 import (

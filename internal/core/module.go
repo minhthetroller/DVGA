@@ -1,3 +1,4 @@
+// Package core defines the shared interfaces and types used by all vulnerability modules.
 package core
 
 import "net/http"

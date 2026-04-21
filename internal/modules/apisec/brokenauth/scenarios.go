@@ -93,7 +93,7 @@ func buildJWTStrong(u database.User, store *database.Store) (string, error) {
 		return "", err
 	}
 	token := base64.RawURLEncoding.EncodeToString(rawBytes)
-	apiToken := database.ApiToken{
+	apiToken := database.APIToken{
 		UserID:    u.ID,
 		Token:     token,
 		ExpiresAt: time.Now().Add(1 * time.Hour),
@@ -155,7 +155,7 @@ func serveSessionRenewalAPI(m *BrokenAuthModule, w http.ResponseWriter, r *http.
 
 	case core.Medium:
 		// Weak PRNG 8-char alphanumeric token stored in DB
-		var apiToken database.ApiToken
+		var apiToken database.APIToken
 		if err := m.store.DB().Where("token = ? AND revoked = ? AND expires_at > ?",
 			body.RefreshToken, false, time.Now()).First(&apiToken).Error; err != nil {
 			jsonError(w, "invalid token", http.StatusUnauthorized)
@@ -169,7 +169,7 @@ func serveSessionRenewalAPI(m *BrokenAuthModule, w http.ResponseWriter, r *http.
 
 	case core.Hard:
 		// Proper: one-time token, crypto/rand, revoked after use
-		var apiToken database.ApiToken
+		var apiToken database.APIToken
 		if err := m.store.DB().Where("token = ? AND revoked = ? AND expires_at > ?",
 			body.RefreshToken, false, time.Now()).First(&apiToken).Error; err != nil {
 			jsonError(w, "invalid token", http.StatusUnauthorized)
@@ -180,7 +180,7 @@ func serveSessionRenewalAPI(m *BrokenAuthModule, w http.ResponseWriter, r *http.
 		rawBytes := make([]byte, 32)
 		rand.Read(rawBytes)
 		newTokenStr := base64.RawURLEncoding.EncodeToString(rawBytes)
-		m.store.DB().Create(&database.ApiToken{
+		m.store.DB().Create(&database.APIToken{
 			UserID:    apiToken.UserID,
 			Token:     newTokenStr,
 			ExpiresAt: time.Now().Add(1 * time.Hour),

@@ -1,3 +1,4 @@
+// Package brokenac implements the Broken Access Control vulnerability module.
 package brokenac
 
 import (

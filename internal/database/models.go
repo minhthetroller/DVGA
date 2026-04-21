@@ -1,3 +1,4 @@
+// Package database provides GORM models and the data-access layer for DVGA.
 package database
 
 import "time"
@@ -72,8 +73,8 @@ type Invoice struct {
 	Notes   string
 }
 
-// ApiToken is the GORM model for API tokens (Broken Auth).
-type ApiToken struct {
+// APIToken is the GORM model for API tokens (Broken Auth).
+type APIToken struct {
 	ID        uint      `gorm:"primaryKey"`
 	UserID    uint      `gorm:"not null;index"`
 	Token     string    `gorm:"uniqueIndex;not null"`

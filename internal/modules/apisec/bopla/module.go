@@ -1,3 +1,4 @@
+// Package bopla implements the Broken Object Property Level Authorization (BOPLA) API vulnerability module.
 package bopla
 
 import (
