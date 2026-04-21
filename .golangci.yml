@@ -25,7 +25,7 @@ linters:
         linters:
           - errcheck
       # Test utility files may have unused exported helpers (used across test packages)
-      - path: "test/testutil/"
+      - path: "setup_test\\.go$"
         linters:
           - unused
 issues:

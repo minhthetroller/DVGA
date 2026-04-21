@@ -58,8 +58,14 @@ func cmdiEasy(w http.ResponseWriter, input string) {
 }
 
 func cmdiMedium(w http.ResponseWriter, input string) {
-	sanitized := strings.ReplaceAll(input, "&&", "")
-	sanitized = strings.ReplaceAll(sanitized, ";", "")
+	// Truncate at the first ; or && to prevent chained commands
+	if idx := strings.Index(input, ";"); idx >= 0 {
+		input = input[:idx]
+	}
+	if idx := strings.Index(input, "&&"); idx >= 0 {
+		input = input[:idx]
+	}
+	sanitized := strings.TrimSpace(input)
 	var out []byte
 	if runtime.GOOS == "windows" {
 		out, _ = exec.Command("cmd", "/C", "ping -n 4 "+sanitized).CombinedOutput()

@@ -6,16 +6,15 @@ import (
 	"testing"
 
 	"DVGA/internal/core"
-	"DVGA/test/testutil"
 
 	"github.com/stretchr/testify/assert"
 )
 
 // TestSQLi_Easy verifies that the easy difficulty is fully vulnerable to SQL injection.
 func TestSQLi_Easy(t *testing.T) {
-	app := testutil.NewTestApp(t)
-	token := app.MustLogin(testutil.AdminUsername, testutil.AdminPassword)
-	cookie := app.SessionCookie(token)
+	app := newTestApp(t)
+	token := app.mustLogin(adminUsername, adminPassword)
+	cookie := app.sessionCookie(token)
 
 	tests := []struct {
 		name    string
@@ -51,7 +50,7 @@ func TestSQLi_Easy(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			w := testutil.DoModuleRequest(t, app, "sqli", http.MethodGet, "/?id="+url.QueryEscape(tc.payload), nil, cookie)
+			w := doModuleRequest(t, app, "sqli", http.MethodGet, "/?id="+url.QueryEscape(tc.payload), nil, cookie)
 			body := w.Body.String()
 			for _, s := range tc.wantIn {
 				assert.Contains(t, body, s)
@@ -62,32 +61,32 @@ func TestSQLi_Easy(t *testing.T) {
 
 // TestSQLi_Medium verifies the medium difficulty partially mitigates SQL injection.
 func TestSQLi_Medium(t *testing.T) {
-	app := testutil.NewTestApp(t)
-	app.SetDifficulty(core.Medium)
-	token := app.MustLogin(testutil.AdminUsername, testutil.AdminPassword)
-	cookie := app.SessionCookie(token)
+	app := newTestApp(t)
+	app.setDifficulty(core.Medium)
+	token := app.mustLogin(adminUsername, adminPassword)
+	cookie := app.sessionCookie(token)
 
 	t.Run("valid integer lookup works", func(t *testing.T) {
-		w := testutil.DoModuleRequest(t, app, "sqli", http.MethodGet, "/?id=1", nil, cookie)
+		w := doModuleRequest(t, app, "sqli", http.MethodGet, "/?id=1", nil, cookie)
 		assert.Contains(t, w.Body.String(), "admin")
 	})
 
 	t.Run("string payload rejected by Atoi check", func(t *testing.T) {
-		w := testutil.DoModuleRequest(t, app, "sqli", http.MethodGet, "/?id=abc", nil, cookie)
+		w := doModuleRequest(t, app, "sqli", http.MethodGet, "/?id=abc", nil, cookie)
 		// Atoi fails on "abc"; falls through to escaped path or shows no results
 		body := w.Body.String()
 		assert.NotContains(t, body, "gordonb")
 	})
 
 	t.Run("quote escaping blocks simple quote injection", func(t *testing.T) {
-		w := testutil.DoModuleRequest(t, app, "sqli", http.MethodGet, "/?id=1'+OR+'1'%3D'1", nil, cookie)
+		w := doModuleRequest(t, app, "sqli", http.MethodGet, "/?id=1'+OR+'1'%3D'1", nil, cookie)
 		body := w.Body.String()
 		// Quote is escaped; extra users should NOT appear
 		assert.NotContains(t, body, "pablo")
 	})
 
 	t.Run("password column NOT exposed in medium response", func(t *testing.T) {
-		w := testutil.DoModuleRequest(t, app, "sqli", http.MethodGet, "/?id=1", nil, cookie)
+		w := doModuleRequest(t, app, "sqli", http.MethodGet, "/?id=1", nil, cookie)
 		body := w.Body.String()
 		// Medium only selects id, username, department — password_hash not in response
 		assert.NotContains(t, body, "password_hash")
@@ -97,10 +96,10 @@ func TestSQLi_Medium(t *testing.T) {
 
 // TestSQLi_Hard verifies that parameterized queries block all injection attempts.
 func TestSQLi_Hard(t *testing.T) {
-	app := testutil.NewTestApp(t)
-	app.SetDifficulty(core.Hard)
-	token := app.MustLogin(testutil.AdminUsername, testutil.AdminPassword)
-	cookie := app.SessionCookie(token)
+	app := newTestApp(t)
+	app.setDifficulty(core.Hard)
+	token := app.mustLogin(adminUsername, adminPassword)
+	cookie := app.sessionCookie(token)
 
 	tests := []struct {
 		name       string
@@ -118,7 +117,7 @@ func TestSQLi_Hard(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			w := testutil.DoModuleRequest(t, app, "sqli", http.MethodGet, "/?id="+url.QueryEscape(tc.payload), nil, cookie)
+			w := doModuleRequest(t, app, "sqli", http.MethodGet, "/?id="+url.QueryEscape(tc.payload), nil, cookie)
 			body := w.Body.String()
 			if tc.wantEmpty {
 				assert.Contains(t, body, "No results")

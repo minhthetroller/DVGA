@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"DVGA/internal/core"
-	"DVGA/test/testutil"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -47,12 +46,12 @@ func setupFilesDir(t *testing.T) {
 // TestPathTraversal_Easy verifies directory traversal is fully exploitable.
 func TestPathTraversal_Easy(t *testing.T) {
 	setupFilesDir(t)
-	app := testutil.NewTestApp(t)
-	token := app.MustLogin(testutil.AdminUsername, testutil.AdminPassword)
-	cookie := app.SessionCookie(token)
+	app := newTestApp(t)
+	token := app.mustLogin(adminUsername, adminPassword)
+	cookie := app.sessionCookie(token)
 
 	t.Run("valid filename returns file contents", func(t *testing.T) {
-		w := testutil.DoModuleRequest(t, app, "path-traversal", http.MethodGet,
+		w := doModuleRequest(t, app, "path-traversal", http.MethodGet,
 			"/?file=config.txt", nil, cookie)
 		assert.Contains(t, w.Body.String(), "server_host")
 	})
@@ -70,16 +69,16 @@ func TestPathTraversal_Easy(t *testing.T) {
 		os.Chdir(dir)
 		t.Cleanup(func() { os.Chdir(original) })
 
-		app2 := testutil.NewTestApp(t)
-		token2 := app2.MustLogin(testutil.AdminUsername, testutil.AdminPassword)
+		app2 := newTestApp(t)
+		token2 := app2.mustLogin(adminUsername, adminPassword)
 		// ../../sentinel.txt goes: data/files → data → root → sentinel.txt
-		w := testutil.DoModuleRequest(t, app2, "path-traversal", http.MethodGet,
-			"/?file=../../sentinel.txt", nil, app2.SessionCookie(token2))
+		w := doModuleRequest(t, app2, "path-traversal", http.MethodGet,
+			"/?file=../../sentinel.txt", nil, app2.sessionCookie(token2))
 		assert.Contains(t, w.Body.String(), "TRAVERSAL_SUCCESS")
 	})
 
 	t.Run("nonexistent file returns error", func(t *testing.T) {
-		w := testutil.DoModuleRequest(t, app, "path-traversal", http.MethodGet,
+		w := doModuleRequest(t, app, "path-traversal", http.MethodGet,
 			"/?file=doesnotexist.txt", nil, cookie)
 		assert.Contains(t, w.Body.String(), "not found")
 	})
@@ -102,19 +101,19 @@ func TestPathTraversal_Medium(t *testing.T) {
 	os.Chdir(dir)
 	t.Cleanup(func() { os.Chdir(original) })
 
-	app := testutil.NewTestApp(t)
-	app.SetDifficulty(core.Medium)
-	token := app.MustLogin(testutil.AdminUsername, testutil.AdminPassword)
-	cookie := app.SessionCookie(token)
+	app := newTestApp(t)
+	app.setDifficulty(core.Medium)
+	token := app.mustLogin(adminUsername, adminPassword)
+	cookie := app.sessionCookie(token)
 
 	t.Run("valid file still works", func(t *testing.T) {
-		w := testutil.DoModuleRequest(t, app, "path-traversal", http.MethodGet,
+		w := doModuleRequest(t, app, "path-traversal", http.MethodGet,
 			"/?file=config.txt", nil, cookie)
 		assert.Contains(t, w.Body.String(), "server_host")
 	})
 
 	t.Run("simple ../ stripped — traversal blocked", func(t *testing.T) {
-		w := testutil.DoModuleRequest(t, app, "path-traversal", http.MethodGet,
+		w := doModuleRequest(t, app, "path-traversal", http.MethodGet,
 			"/?file=../escape.txt", nil, cookie)
 		// After stripping ../: becomes "escape.txt" which doesn't exist in files/
 		assert.Contains(t, w.Body.String(), "not found")
@@ -122,7 +121,7 @@ func TestPathTraversal_Medium(t *testing.T) {
 
 	t.Run("....// double-dot bypass evades the strip", func(t *testing.T) {
 		// ....// → after removing ../: becomes ../  → traverses up
-		w := testutil.DoModuleRequest(t, app, "path-traversal", http.MethodGet,
+		w := doModuleRequest(t, app, "path-traversal", http.MethodGet,
 			"/?file=....//escape.txt", nil, cookie)
 		assert.Contains(t, w.Body.String(), "ESCAPED_MEDIUM")
 	})
@@ -140,33 +139,33 @@ func TestPathTraversal_Hard(t *testing.T) {
 	os.Chdir(dir)
 	t.Cleanup(func() { os.Chdir(original) })
 
-	app := testutil.NewTestApp(t)
-	app.SetDifficulty(core.Hard)
-	token := app.MustLogin(testutil.AdminUsername, testutil.AdminPassword)
-	cookie := app.SessionCookie(token)
+	app := newTestApp(t)
+	app.setDifficulty(core.Hard)
+	token := app.mustLogin(adminUsername, adminPassword)
+	cookie := app.sessionCookie(token)
 
 	t.Run("valid filename within base dir works", func(t *testing.T) {
-		w := testutil.DoModuleRequest(t, app, "path-traversal", http.MethodGet,
+		w := doModuleRequest(t, app, "path-traversal", http.MethodGet,
 			"/?file=config.txt", nil, cookie)
 		assert.Contains(t, w.Body.String(), "server_host")
 	})
 
 	t.Run("../ traversal blocked", func(t *testing.T) {
-		w := testutil.DoModuleRequest(t, app, "path-traversal", http.MethodGet,
+		w := doModuleRequest(t, app, "path-traversal", http.MethodGet,
 			"/?file=../escape.txt", nil, cookie)
 		assert.Contains(t, w.Body.String(), "not found")
 		assert.NotContains(t, w.Body.String(), "ESCAPED_HARD")
 	})
 
 	t.Run("....// bypass blocked by filepath.Clean", func(t *testing.T) {
-		w := testutil.DoModuleRequest(t, app, "path-traversal", http.MethodGet,
+		w := doModuleRequest(t, app, "path-traversal", http.MethodGet,
 			"/?file=....//escape.txt", nil, cookie)
 		assert.Contains(t, w.Body.String(), "not found")
 		assert.NotContains(t, w.Body.String(), "ESCAPED_HARD")
 	})
 
 	t.Run("absolute path blocked", func(t *testing.T) {
-		w := testutil.DoModuleRequest(t, app, "path-traversal", http.MethodGet,
+		w := doModuleRequest(t, app, "path-traversal", http.MethodGet,
 			"/?file=/etc/passwd", nil, cookie)
 		assert.Contains(t, w.Body.String(), "not found")
 	})

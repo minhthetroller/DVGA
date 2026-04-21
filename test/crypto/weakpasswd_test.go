@@ -6,18 +6,17 @@ import (
 	"testing"
 
 	"DVGA/internal/core"
-	"DVGA/test/testutil"
 
 	"github.com/stretchr/testify/assert"
 )
 
 // TestWeakPasswd_Easy verifies plaintext passwords are exposed in the response.
 func TestWeakPasswd_Easy(t *testing.T) {
-	app := testutil.NewTestApp(t)
-	token := app.MustLogin(testutil.AdminUsername, testutil.AdminPassword)
-	cookie := app.SessionCookie(token)
+	app := newTestApp(t)
+	token := app.mustLogin(adminUsername, adminPassword)
+	cookie := app.sessionCookie(token)
 
-	w := testutil.DoModuleRequest(t, app, "weak-passwd", http.MethodGet, "/", nil, cookie)
+	w := doModuleRequest(t, app, "weak-passwd", http.MethodGet, "/", nil, cookie)
 	body := w.Body.String()
 
 	t.Run("password field present in response", func(t *testing.T) {
@@ -33,12 +32,12 @@ func TestWeakPasswd_Easy(t *testing.T) {
 
 // TestWeakPasswd_Medium verifies MD5 hashes are returned instead of plaintext.
 func TestWeakPasswd_Medium(t *testing.T) {
-	app := testutil.NewTestApp(t)
-	app.SetDifficulty(core.Medium)
-	token := app.MustLogin(testutil.AdminUsername, testutil.AdminPassword)
-	cookie := app.SessionCookie(token)
+	app := newTestApp(t)
+	app.setDifficulty(core.Medium)
+	token := app.mustLogin(adminUsername, adminPassword)
+	cookie := app.sessionCookie(token)
 
-	w := testutil.DoModuleRequest(t, app, "weak-passwd", http.MethodGet, "/", nil, cookie)
+	w := doModuleRequest(t, app, "weak-passwd", http.MethodGet, "/", nil, cookie)
 	body := w.Body.String()
 
 	t.Run("password_hash field present", func(t *testing.T) {
@@ -63,13 +62,13 @@ func TestWeakPasswd_Medium(t *testing.T) {
 
 // TestWeakPasswd_Hard verifies no password data is exposed and bcrypt verify works.
 func TestWeakPasswd_Hard(t *testing.T) {
-	app := testutil.NewTestApp(t)
-	app.SetDifficulty(core.Hard)
-	token := app.MustLogin(testutil.AdminUsername, testutil.AdminPassword)
-	cookie := app.SessionCookie(token)
+	app := newTestApp(t)
+	app.setDifficulty(core.Hard)
+	token := app.mustLogin(adminUsername, adminPassword)
+	cookie := app.sessionCookie(token)
 
 	t.Run("user listing contains no password field", func(t *testing.T) {
-		w := testutil.DoModuleRequest(t, app, "weak-passwd", http.MethodGet, "/", nil, cookie)
+		w := doModuleRequest(t, app, "weak-passwd", http.MethodGet, "/", nil, cookie)
 		body := w.Body.String()
 		// JSON output should not contain password fields (only id, username, role)
 		// The HTML form itself contains type="password" but the JSON response should not
@@ -81,16 +80,16 @@ func TestWeakPasswd_Hard(t *testing.T) {
 	})
 
 	t.Run("verify correct password returns verified true", func(t *testing.T) {
-		w := testutil.DoModuleRequest(t, app, "weak-passwd", http.MethodPost, "/",
-			testutil.FormBody("action", "verify", "username", "gordonb", "guess", "abc123"),
+		w := doModuleRequest(t, app, "weak-passwd", http.MethodPost, "/",
+			formBody("action", "verify", "username", "gordonb", "guess", "abc123"),
 			cookie)
 		body := w.Body.String()
 		assert.Contains(t, body, fmt.Sprintf("%v", true))
 	})
 
 	t.Run("verify wrong password returns verified false", func(t *testing.T) {
-		w := testutil.DoModuleRequest(t, app, "weak-passwd", http.MethodPost, "/",
-			testutil.FormBody("action", "verify", "username", "gordonb", "guess", "wrongpassword"),
+		w := doModuleRequest(t, app, "weak-passwd", http.MethodPost, "/",
+			formBody("action", "verify", "username", "gordonb", "guess", "wrongpassword"),
 			cookie)
 		body := w.Body.String()
 		assert.Contains(t, body, fmt.Sprintf("%v", false))

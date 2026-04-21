@@ -4,7 +4,6 @@ import (
 	"net/http"
 	"testing"
 
-	"DVGA/test/testutil"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -12,19 +11,19 @@ import (
 // TestAllModulesAtAllDifficulties verifies every registered module can be built at
 // each difficulty and responds with HTTP 200 (no panics or crashes).
 func TestAllModulesAtAllDifficulties(t *testing.T) {
-	for _, d := range testutil.AllDifficulties() {
+	for _, d := range allDifficulties() {
 		d := d // capture
 		t.Run(d.String(), func(t *testing.T) {
-			app := testutil.NewTestApp(t)
-			app.SetDifficulty(d)
+			app := newTestApp(t)
+			app.setDifficulty(d)
 
-			token := app.MustLogin(testutil.AdminUsername, testutil.AdminPassword)
-			cookie := app.SessionCookie(token)
+			token := app.mustLogin(adminUsername, adminPassword)
+			cookie := app.sessionCookie(token)
 
-			for _, id := range app.Registry.IDs() {
+			for _, id := range app.registry.IDs() {
 				id := id // capture
 				t.Run(id, func(t *testing.T) {
-					w := testutil.DoModuleRequest(t, app, id, http.MethodGet, "/", nil, cookie)
+					w := doModuleRequest(t, app, id, http.MethodGet, "/", nil, cookie)
 					// Module should respond — not panic (200 or redirect/error is fine)
 					assert.NotNil(t, w)
 					// 500 indicates a server panic/crash — that's always wrong
@@ -39,16 +38,16 @@ func TestAllModulesAtAllDifficulties(t *testing.T) {
 // TestModuleMetaDifficulty verifies every module's Meta().Difficulty matches
 // the difficulty it was built at.
 func TestModuleMetaDifficulty(t *testing.T) {
-	for _, d := range testutil.AllDifficulties() {
+	for _, d := range allDifficulties() {
 		d := d
 		t.Run(d.String(), func(t *testing.T) {
-			app := testutil.NewTestApp(t)
-			app.SetDifficulty(d)
+			app := newTestApp(t)
+			app.setDifficulty(d)
 
-			for _, id := range app.Registry.IDs() {
+			for _, id := range app.registry.IDs() {
 				id := id
 				t.Run(id, func(t *testing.T) {
-					mod := app.BuildModule(id)
+					mod := app.buildModule(id)
 					meta := mod.Meta()
 					assert.Equal(t, d, meta.Difficulty,
 						"module %s built at %s but Meta().Difficulty=%s", id, d.String(), meta.Difficulty.String())
