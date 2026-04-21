@@ -183,7 +183,10 @@ func serveSessionRenewalAPI(m *BrokenAuthModule, w http.ResponseWriter, r *http.
 		apiToken.Revoked = true
 		m.store.DB().Save(&apiToken)
 		rawBytes := make([]byte, 32)
-		rand.Read(rawBytes)
+		if _, err := rand.Read(rawBytes); err != nil {
+			jsonError(w, "internal server error", http.StatusInternalServerError)
+			return
+		}
 		newTokenStr := base64.RawURLEncoding.EncodeToString(rawBytes)
 		m.store.DB().Create(&database.ApiToken{
 			UserID:    apiToken.UserID,
