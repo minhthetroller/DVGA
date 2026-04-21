@@ -63,7 +63,12 @@ func serveMobileLoginAPI(m *BrokenAuthModule, w http.ResponseWriter, r *http.Req
 	case core.Medium:
 		token = buildJWTWeakHS256(user)
 	case core.Hard:
-		token, _ = buildJWTStrong(user, m.store)
+		var err error
+		token, err = buildJWTStrong(user, m.store)
+		if err != nil {
+			jsonError(w, "failed to generate token", http.StatusInternalServerError)
+			return
+		}
 	}
 	json.NewEncoder(w).Encode(map[string]string{"token": token})
 }
