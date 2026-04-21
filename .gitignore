@@ -9,3 +9,6 @@ data/*.db-wal
 
 # Diagram files
 diagram.txt
+
+# JetBrains IDE files
+.idea/
