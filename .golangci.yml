@@ -9,9 +9,8 @@ linters:
   enable:
     - govet       # catches suspicious code constructs (printf mismatches, unreachable, etc.)
     - staticcheck # SA: deprecated API usage, unreachable code, incorrect calls
-    - deadcode    # reports unused exported identifiers (replaces "unused" in v2)
+    - unused      # reports unused identifiers
     - ineffassign # detects assignments whose result is never used
-    - gosimple    # simplification suggestions (subset of staticcheck)
     # - typecheck   # mandatory: ensures all code compiles
   settings:
     staticcheck:
@@ -19,17 +18,17 @@ linters:
         - "all"
         - "-SA1006"  # allow printf with no args in fmt.Fprint patterns used throughout codebase
         - "-SA9003"  # allow empty branches used as documentation stubs
-
+  exclusions:
+    rules:
+      # Test helpers often ignore errors intentionally
+      - path: "_test\\.go$"
+        linters:
+          - errcheck
+      # Test utility files may have unused exported helpers (used across test packages)
+      - path: "test/testutil/"
+        linters:
+          - unused
 issues:
-  exclude-rules:
-    # Test helpers often ignore errors intentionally
-    - path: "_test\\.go$"
-      linters:
-        - errcheck
-    # Test utility files may have unused exported helpers (used across test packages)
-    - path: "test/testutil/"
-      linters:
-        - deadcode
   # Show all issues; do not cap at 50
   max-issues-per-linter: 0
   max-same-issues: 0
