@@ -1,3 +1,4 @@
+// Package ui serves static assets and template-rendered HTML pages.
 package ui
 
 import (
@@ -84,7 +85,38 @@ func (h *Handler) Routes() chi.Router {
 		r.Get("/vulnerabilities/{moduleID}/hint", h.hintAPI)
 	})
 
+	// Mount API routes for APIModule instances
+	h.mountAPIRoutes(r)
+
 	return r
+}
+
+// mountAPIRoutes registers API endpoints declared by APIModule instances.
+func (h *Handler) mountAPIRoutes(r chi.Router) {
+	for _, id := range h.registry.IDs() {
+		mod, err := h.registry.Build(id, h.difficulty.Get())
+		if err != nil {
+			continue
+		}
+		apiMod, ok := mod.(core.APIModule)
+		if !ok {
+			continue
+		}
+		for _, rt := range apiMod.APIRoutes() {
+			path := rt.Path
+			modID := id
+			r.With(h.requireAuth).Method(rt.Method, path, http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+				m, err := h.registry.Build(modID, h.difficulty.Get())
+				if err != nil {
+					http.NotFound(w, req)
+					return
+				}
+				if am, ok := m.(core.APIModule); ok {
+					am.ServeAPI(w, req)
+				}
+			}))
+		}
+	}
 }
 
 // --- Auth middleware ---
@@ -206,7 +238,13 @@ func (h *Handler) modulePage(w http.ResponseWriter, r *http.Request) {
 	data := h.baseData(mod.Meta().Name, moduleID, sess)
 	data.Content = template.HTML(buf.String())
 	data.MoreInfo = mod.Meta().References
-	h.renderPage(w, "module", data)
+
+	// Use API-specific template for API modules
+	templateName := "module"
+	if mod.Meta().Kind == core.KindAPI {
+		templateName = "module_api"
+	}
+	h.renderPage(w, templateName, data)
 }
 
 // --- Helpers ---

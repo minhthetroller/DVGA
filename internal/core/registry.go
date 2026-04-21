@@ -6,41 +6,41 @@ import (
 	"sync"
 )
 
-// Registry holds module factories keyed by module ID.
+// Registry holds module constructors keyed by module ID.
 type Registry struct {
-	mu        sync.RWMutex
-	factories map[string]ModuleFactory
+	mu           sync.RWMutex
+	constructors map[string]ModuleConstructor
 }
 
 func NewRegistry() *Registry {
-	return &Registry{factories: make(map[string]ModuleFactory)}
+	return &Registry{constructors: make(map[string]ModuleConstructor)}
 }
 
-// Register adds a factory under the given module ID.
-func (r *Registry) Register(id string, f ModuleFactory) {
+// Register adds a constructor under the given module ID.
+func (r *Registry) Register(id string, c ModuleConstructor) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	r.factories[id] = f
+	r.constructors[id] = c
 }
 
 // Build creates a single module by ID for the given difficulty.
 func (r *Registry) Build(id string, d Difficulty) (VulnModule, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	f, ok := r.factories[id]
+	c, ok := r.constructors[id]
 	if !ok {
 		return nil, fmt.Errorf("module %q not registered", id)
 	}
-	return f.Create(d), nil
+	return c(d), nil
 }
 
 // All builds every registered module for the given difficulty.
 func (r *Registry) All(d Difficulty) []VulnModule {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	modules := make([]VulnModule, 0, len(r.factories))
-	for _, f := range r.factories {
-		modules = append(modules, f.Create(d))
+	modules := make([]VulnModule, 0, len(r.constructors))
+	for _, c := range r.constructors {
+		modules = append(modules, c(d))
 	}
 	return modules
 }
@@ -49,8 +49,8 @@ func (r *Registry) All(d Difficulty) []VulnModule {
 func (r *Registry) IDs() []string {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	ids := make([]string, 0, len(r.factories))
-	for id := range r.factories {
+	ids := make([]string, 0, len(r.constructors))
+	for id := range r.constructors {
 		ids = append(ids, id)
 	}
 	sort.Strings(ids)

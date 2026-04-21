@@ -9,27 +9,13 @@ import (
 	"DVGA/internal/core"
 )
 
-// --- Factory ---
-
-type HeadersFactory struct{}
-
-func (f *HeadersFactory) Create(d core.Difficulty) core.VulnModule {
-	return &HeadersModule{difficulty: d}
-}
-
-// --- Module ---
-
-type HeadersModule struct {
-	difficulty core.Difficulty
-}
-
-func (m *HeadersModule) Meta() core.ModuleMeta {
+func securityHeadersMeta(d core.Difficulty) core.ModuleMeta {
 	return core.ModuleMeta{
 		ID:          "security-headers",
 		Name:        "Security Check",
 		Description: "Inspect your application security posture.",
 		Category:    "Security Misconfiguration",
-		Difficulty:  m.difficulty,
+		Difficulty:  d,
 		References: []string{
 			"https://owasp.org/Top10/A05_2021-Security_Misconfiguration/",
 			"https://securityheaders.com/",
@@ -43,17 +29,16 @@ func (m *HeadersModule) Meta() core.ModuleMeta {
 	}
 }
 
-func (m *HeadersModule) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func serveSecurityHeaders(m *MisconfigModule, w http.ResponseWriter, r *http.Request) {
 	switch m.difficulty {
 	case core.Easy:
-		m.applyEasyHeaders(w, r)
+		shApplyEasy(w)
 	case core.Medium:
-		m.applyMediumHeaders(w, r)
+		shApplyMedium(w, r)
 	case core.Hard:
-		m.applyHardHeaders(w, r)
+		shApplyHard(w, r)
 	}
 
-	// Collect current headers
 	headerMap := make(map[string]string)
 	for name, values := range w.Header() {
 		if len(values) > 0 {
@@ -61,7 +46,6 @@ func (m *HeadersModule) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Security checks
 	type checkResult struct {
 		Header string `json:"header"`
 		Status string `json:"status"`
@@ -87,22 +71,18 @@ func (m *HeadersModule) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		results = append(results, checkResult{Header: c.Name, Status: status})
 	}
-
-	resp := map[string]interface{}{
-		"headers": headerMap,
-		"audit":   results,
-	}
+	resp := map[string]any{"headers": headerMap, "audit": results}
 	data, _ := json.MarshalIndent(resp, "", "  ")
-	fmt.Fprint(w, m.renderForm(`<pre class="output">`+string(data)+`</pre>`))
+	fmt.Fprint(w, shRenderForm(`<pre class="output">`+string(data)+`</pre>`))
 }
 
-func (m *HeadersModule) applyEasyHeaders(w http.ResponseWriter, r *http.Request) {
+func shApplyEasy(w http.ResponseWriter) {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 	w.Header().Set("Access-Control-Allow-Headers", "*")
 }
 
-func (m *HeadersModule) applyMediumHeaders(w http.ResponseWriter, r *http.Request) {
+func shApplyMedium(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	origin := r.Header.Get("Origin")
 	if origin != "" && strings.Contains(origin, "example.com") {
@@ -110,7 +90,7 @@ func (m *HeadersModule) applyMediumHeaders(w http.ResponseWriter, r *http.Reques
 	}
 }
 
-func (m *HeadersModule) applyHardHeaders(w http.ResponseWriter, r *http.Request) {
+func shApplyHard(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("X-Frame-Options", "DENY")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.Header().Set("Content-Security-Policy", "default-src 'self'")
@@ -122,7 +102,7 @@ func (m *HeadersModule) applyHardHeaders(w http.ResponseWriter, r *http.Request)
 	}
 }
 
-func (m *HeadersModule) renderForm(output string) string {
+func shRenderForm(output string) string {
 	html := `<div class="vuln-form">
 <h3>Security Check</h3>
 <p>Inspect the security headers of this page.</p>
@@ -132,3 +112,5 @@ func (m *HeadersModule) renderForm(output string) string {
 	}
 	return html
 }
+
+

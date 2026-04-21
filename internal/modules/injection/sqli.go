@@ -11,30 +11,13 @@ import (
 	"DVGA/internal/database"
 )
 
-// --- Factory ---
-
-type SQLiFactory struct {
-	store *database.Store
-}
-
-func (f *SQLiFactory) Create(d core.Difficulty) core.VulnModule {
-	return &SQLiModule{difficulty: d, store: f.store}
-}
-
-// --- Module ---
-
-type SQLiModule struct {
-	difficulty core.Difficulty
-	store      *database.Store
-}
-
-func (m *SQLiModule) Meta() core.ModuleMeta {
+func sqliMeta(d core.Difficulty) core.ModuleMeta {
 	return core.ModuleMeta{
 		ID:          "sqli",
 		Name:        "Employee Directory",
 		Description: "Look up employee information by ID.",
 		Category:    "Injection",
-		Difficulty:  m.difficulty,
+		Difficulty:  d,
 		References: []string{
 			"https://owasp.org/Top10/A03_2021-Injection/",
 			"https://owasp.org/www-community/attacks/SQL_Injection",
@@ -48,47 +31,45 @@ func (m *SQLiModule) Meta() core.ModuleMeta {
 	}
 }
 
-func (m *SQLiModule) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func serveSQLi(m *InjectionModule, w http.ResponseWriter, r *http.Request) {
 	input := r.FormValue("id")
 	if input == "" {
-		fmt.Fprint(w, m.renderForm(""))
+		fmt.Fprint(w, sqliRenderForm(""))
 		return
 	}
-
 	switch m.difficulty {
 	case core.Easy:
-		m.serveEasy(w, input)
+		sqliEasy(m, w, input)
 	case core.Medium:
-		m.serveMedium(w, input)
+		sqliMedium(m, w, input)
 	case core.Hard:
-		m.serveHard(w, input)
+		sqliHard(m, w, input)
 	}
 }
 
-func (m *SQLiModule) serveEasy(w http.ResponseWriter, input string) {
-	// VULNERABLE: direct string concatenation
+func sqliEasy(m *InjectionModule, w http.ResponseWriter, input string) {
 	query := "SELECT id, username, password, role, secret_question, secret_answer FROM users WHERE id = '" + input + "'"
 	rows, err := m.store.DB().Raw(query).Rows()
 	if err != nil {
-		fmt.Fprint(w, m.renderForm(`<div class="error">No results found.</div>`))
+		fmt.Fprint(w, sqliRenderForm(`<div class="error">No results found.</div>`))
 		return
 	}
 	defer rows.Close()
 
 	type employee struct {
-		ID         interface{} `json:"id"`
-		Name       interface{} `json:"name"`
-		Department interface{} `json:"department"`
-		Title      interface{} `json:"title"`
-		Email      interface{} `json:"email"`
-		Notes      interface{} `json:"notes"`
+		ID         any `json:"id"`
+		Name       any `json:"name"`
+		Department any `json:"department"`
+		Title      any `json:"title"`
+		Email      any `json:"email"`
+		Notes      any `json:"notes"`
 	}
 
 	cols, _ := rows.Columns()
 	var results []employee
 	for rows.Next() {
-		values := make([]interface{}, len(cols))
-		ptrs := make([]interface{}, len(cols))
+		values := make([]any, len(cols))
+		ptrs := make([]any, len(cols))
 		for i := range values {
 			ptrs[i] = &values[i]
 		}
@@ -116,43 +97,42 @@ func (m *SQLiModule) serveEasy(w http.ResponseWriter, input string) {
 		}
 		results = append(results, e)
 	}
-
 	if len(results) == 0 {
-		fmt.Fprint(w, m.renderForm(`<div class="error">No results found.</div>`))
+		fmt.Fprint(w, sqliRenderForm(`<div class="error">No results found.</div>`))
 		return
 	}
-	data, _ := json.MarshalIndent(map[string]interface{}{"employees": results}, "", "  ")
-	fmt.Fprint(w, m.renderForm(`<pre class="output">`+string(data)+`</pre>`))
+	data, _ := json.MarshalIndent(map[string]any{"employees": results}, "", "  ")
+	fmt.Fprint(w, sqliRenderForm(`<pre class="output">`+string(data)+`</pre>`))
 }
 
-func (m *SQLiModule) serveMedium(w http.ResponseWriter, input string) {
+func sqliMedium(m *InjectionModule, w http.ResponseWriter, input string) {
 	if _, err := strconv.Atoi(input); err == nil {
 		query := "SELECT id, username, role FROM users WHERE id = " + input
 		rows, err := m.store.DB().Raw(query).Rows()
 		if err != nil {
-			fmt.Fprint(w, m.renderForm(`<div class="error">No results found.</div>`))
+			fmt.Fprint(w, sqliRenderForm(`<div class="error">No results found.</div>`))
 			return
 		}
 		defer rows.Close()
-		fmt.Fprint(w, m.renderForm(m.formatRowsMedium(rows)))
+		fmt.Fprint(w, sqliRenderForm(sqliFormatMediumRows(rows)))
 		return
 	}
 	escaped := strings.ReplaceAll(input, "'", "\\'")
 	query := "SELECT id, username, role FROM users WHERE id = '" + escaped + "'"
 	rows, err := m.store.DB().Raw(query).Rows()
 	if err != nil {
-		fmt.Fprint(w, m.renderForm(`<div class="error">No results found.</div>`))
+		fmt.Fprint(w, sqliRenderForm(`<div class="error">No results found.</div>`))
 		return
 	}
 	defer rows.Close()
-	fmt.Fprint(w, m.renderForm(m.formatRowsMedium(rows)))
+	fmt.Fprint(w, sqliRenderForm(sqliFormatMediumRows(rows)))
 }
 
-func (m *SQLiModule) serveHard(w http.ResponseWriter, input string) {
+func sqliHard(m *InjectionModule, w http.ResponseWriter, input string) {
 	var users []database.User
 	m.store.DB().Where("id = ?", input).Find(&users)
 	if len(users) == 0 {
-		fmt.Fprint(w, m.renderForm(`<div class="error">No results found.</div>`))
+		fmt.Fprint(w, sqliRenderForm(`<div class="error">No results found.</div>`))
 		return
 	}
 	type emp struct {
@@ -160,15 +140,20 @@ func (m *SQLiModule) serveHard(w http.ResponseWriter, input string) {
 		Name       string `json:"name"`
 		Department string `json:"department"`
 	}
-	var results []emp
+	results := make([]emp, 0, len(users))
 	for _, u := range users {
 		results = append(results, emp{ID: u.ID, Name: u.Username, Department: u.Role})
 	}
-	data, _ := json.MarshalIndent(map[string]interface{}{"employees": results}, "", "  ")
-	fmt.Fprint(w, m.renderForm(`<pre class="output">`+string(data)+`</pre>`))
+	data, _ := json.MarshalIndent(map[string]any{"employees": results}, "", "  ")
+	fmt.Fprint(w, sqliRenderForm(`<pre class="output">`+string(data)+`</pre>`))
 }
 
-func (m *SQLiModule) formatRowsMedium(rows interface{ Next() bool; Scan(...any) error }) string {
+type rowScanner interface {
+	Next() bool
+	Scan(...any) error
+}
+
+func sqliFormatMediumRows(rows rowScanner) string {
 	type emp struct {
 		ID         int    `json:"id"`
 		Name       string `json:"name"`
@@ -186,11 +171,11 @@ func (m *SQLiModule) formatRowsMedium(rows interface{ Next() bool; Scan(...any) 
 	if len(results) == 0 {
 		return `<div class="error">No results found.</div>`
 	}
-	data, _ := json.MarshalIndent(map[string]interface{}{"employees": results}, "", "  ")
+	data, _ := json.MarshalIndent(map[string]any{"employees": results}, "", "  ")
 	return `<pre class="output">` + string(data) + `</pre>`
 }
 
-func (m *SQLiModule) renderForm(output string) string {
+func sqliRenderForm(output string) string {
 	html := `<div class="vuln-form">
 <h3>Employee Directory</h3>
 <p>Look up an employee by their ID:</p>
@@ -204,3 +189,5 @@ func (m *SQLiModule) renderForm(output string) string {
 	}
 	return html
 }
+
+

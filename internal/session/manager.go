@@ -1,3 +1,4 @@
+// Package session manages per-user HTTP session state.
 package session
 
 import (

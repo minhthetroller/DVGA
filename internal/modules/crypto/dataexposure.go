@@ -17,30 +17,13 @@ import (
 	"DVGA/internal/database"
 )
 
-// --- Factory ---
-
-type DataExposureFactory struct {
-	store *database.Store
-}
-
-func (f *DataExposureFactory) Create(d core.Difficulty) core.VulnModule {
-	return &DataExposureModule{difficulty: d, store: f.store}
-}
-
-// --- Module ---
-
-type DataExposureModule struct {
-	difficulty core.Difficulty
-	store      *database.Store
-}
-
-func (m *DataExposureModule) Meta() core.ModuleMeta {
+func dataExposureMeta(d core.Difficulty) core.ModuleMeta {
 	return core.ModuleMeta{
 		ID:          "data-exposure",
 		Name:        "Secure Notes",
 		Description: "Store and manage your private notes.",
 		Category:    "Cryptographic Failures",
-		Difficulty:  m.difficulty,
+		Difficulty:  d,
 		References: []string{
 			"https://owasp.org/Top10/A02_2021-Cryptographic_Failures/",
 		},
@@ -53,134 +36,95 @@ func (m *DataExposureModule) Meta() core.ModuleMeta {
 	}
 }
 
-func (m *DataExposureModule) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func serveDataExposure(m *CryptoModule, w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodPost {
-		action := r.FormValue("action")
-		if action == "add" {
-			m.handleAdd(w, r)
+		switch r.FormValue("action") {
+		case "add":
+			deHandleAdd(m, w, r)
 			return
-		}
-		if action == "decrypt" {
-			m.handleDecrypt(w, r)
+		case "decrypt":
+			deHandleDecrypt(m, w, r)
 			return
 		}
 	}
-
 	switch m.difficulty {
 	case core.Easy:
-		m.serveEasy(w)
+		deEasy(m, w)
 	case core.Medium:
-		m.serveMedium(w)
+		deMedium(m, w)
 	case core.Hard:
-		m.serveHard(w)
+		deHard(m, w)
 	}
 }
 
-func (m *DataExposureModule) handleAdd(w http.ResponseWriter, r *http.Request) {
+func deHandleAdd(m *CryptoModule, w http.ResponseWriter, r *http.Request) {
 	title := r.FormValue("title")
 	value := r.FormValue("value")
 	password := r.FormValue("password")
-
 	if title == "" || value == "" {
-		fmt.Fprint(w, m.renderForm("Title and value are required.", ""))
+		fmt.Fprint(w, deRenderForm(m.difficulty, "Title and value are required.", ""))
 		return
 	}
-
-	var storedValue string
+	var stored string
 	switch m.difficulty {
 	case core.Easy:
-		storedValue = value
+		stored = value
 	case core.Medium:
-		storedValue = base64.StdEncoding.EncodeToString([]byte(value))
+		stored = base64.StdEncoding.EncodeToString([]byte(value))
 	case core.Hard:
 		if password == "" {
-			fmt.Fprint(w, m.renderForm("Password required.", ""))
+			fmt.Fprint(w, deRenderForm(m.difficulty, "Password required.", ""))
 			return
 		}
-		encrypted, err := encryptAES(value, password)
+		enc, err := encryptAES(value, password)
 		if err != nil {
-			fmt.Fprint(w, m.renderForm("Encryption error.", ""))
+			fmt.Fprint(w, deRenderForm(m.difficulty, "Encryption error.", ""))
 			return
 		}
-		storedValue = encrypted
+		stored = enc
 	}
-
-	m.store.DB().Create(&database.Secret{UserID: 1, Title: title, Value: storedValue})
-	m.ServeHTTP(w, r)
+	m.store.DB().Create(&database.Secret{UserID: 1, Title: title, Value: stored})
+	switch m.difficulty {
+	case core.Easy:
+		deEasy(m, w)
+	case core.Medium:
+		deMedium(m, w)
+	case core.Hard:
+		deHard(m, w)
+	}
 }
 
-func (m *DataExposureModule) handleDecrypt(w http.ResponseWriter, r *http.Request) {
+func deHandleDecrypt(m *CryptoModule, w http.ResponseWriter, r *http.Request) {
 	secretValue := r.FormValue("secret_value")
 	password := r.FormValue("password")
-
 	decrypted, err := decryptAES(secretValue, password)
 	if err != nil {
-		fmt.Fprint(w, m.renderForm("Decryption failed.", ""))
+		fmt.Fprint(w, deRenderForm(m.difficulty, "Decryption failed.", ""))
 		return
 	}
 	resp, _ := json.Marshal(map[string]string{"decrypted": decrypted})
-	fmt.Fprint(w, m.renderForm("", `<pre class="output">`+string(resp)+`</pre>`))
+	fmt.Fprint(w, deRenderForm(m.difficulty, "", `<pre class="output">`+string(resp)+`</pre>`))
 }
 
-func (m *DataExposureModule) serveEasy(w http.ResponseWriter) {
-	// VULNERABLE: plaintext display — but no label saying so
+// deRenderNotes loads all secrets and renders them as stored (no transform).
+// Easy: stored as plaintext. Medium: stored as base64. Hard: stored as AES ciphertext.
+func deRenderNotes(m *CryptoModule) string {
 	var secrets []database.Secret
 	m.store.DB().Find(&secrets)
-
-	type note struct {
-		ID      uint   `json:"id"`
-		Owner   uint   `json:"owner"`
-		Title   string `json:"title"`
-		Content string `json:"content"`
-	}
-	var notes []note
-	for _, s := range secrets {
-		notes = append(notes, note{ID: s.ID, Owner: s.UserID, Title: s.Title, Content: s.Value})
-	}
-	data, _ := json.MarshalIndent(map[string]interface{}{"notes": notes}, "", "  ")
-	fmt.Fprint(w, m.renderForm("", `<pre class="output">`+string(data)+`</pre>`))
+	notes := deNotesJSON(secrets, func(v string) string { return v })
+	return `<pre class="output">` + notes + `</pre>`
 }
 
-func (m *DataExposureModule) serveMedium(w http.ResponseWriter) {
-	// WEAK: base64 — returned without labeling the encoding
-	var secrets []database.Secret
-	m.store.DB().Find(&secrets)
-
-	type note struct {
-		ID      uint   `json:"id"`
-		Owner   uint   `json:"owner"`
-		Title   string `json:"title"`
-		Content string `json:"content"`
-	}
-	var notes []note
-	for _, s := range secrets {
-		encoded := base64.StdEncoding.EncodeToString([]byte(s.Value))
-		notes = append(notes, note{ID: s.ID, Owner: s.UserID, Title: s.Title, Content: encoded})
-	}
-	data, _ := json.MarshalIndent(map[string]interface{}{"notes": notes}, "", "  ")
-	fmt.Fprint(w, m.renderForm("", `<pre class="output">`+string(data)+`</pre>`))
+func deEasy(m *CryptoModule, w http.ResponseWriter) {
+	fmt.Fprint(w, deRenderForm(m.difficulty, "", deRenderNotes(m)))
 }
 
-func (m *DataExposureModule) serveHard(w http.ResponseWriter) {
-	// SECURE: AES-256-GCM encrypted values
-	var secrets []database.Secret
-	m.store.DB().Find(&secrets)
+func deMedium(m *CryptoModule, w http.ResponseWriter) {
+	fmt.Fprint(w, deRenderForm(m.difficulty, "", deRenderNotes(m)))
+}
 
-	type note struct {
-		ID      uint   `json:"id"`
-		Owner   uint   `json:"owner"`
-		Title   string `json:"title"`
-		Content string `json:"content"`
-	}
-	var notes []note
-	for _, s := range secrets {
-		notes = append(notes, note{ID: s.ID, Owner: s.UserID, Title: s.Title, Content: truncate(s.Value, 30)})
-	}
-	data, _ := json.MarshalIndent(map[string]interface{}{"notes": notes}, "", "  ")
-
-	output := `<pre class="output">` + string(data) + `</pre>`
-
-	// Decrypt form
+func deHard(m *CryptoModule, w http.ResponseWriter) {
+	output := deRenderNotes(m)
 	output += `<div class="vuln-form" style="margin-top:1rem">
 <h4>Decrypt a Note</h4>
 <form method="POST">
@@ -190,18 +134,32 @@ func (m *DataExposureModule) serveHard(w http.ResponseWriter) {
 <input type="submit" value="Decrypt" />
 </form>
 </div>`
-
-	fmt.Fprint(w, m.renderForm("", output))
+	fmt.Fprint(w, deRenderForm(m.difficulty, "", output))
 }
 
-func (m *DataExposureModule) renderForm(errMsg, output string) string {
+func deNotesJSON(secrets []database.Secret, transform func(string) string) string {
+	type note struct {
+		ID      uint   `json:"id"`
+		Owner   uint   `json:"owner"`
+		Title   string `json:"title"`
+		Content string `json:"content"`
+	}
+	notes := make([]note, 0, len(secrets))
+	for _, s := range secrets {
+		notes = append(notes, note{ID: s.ID, Owner: s.UserID, Title: s.Title, Content: transform(s.Value)})
+	}
+	data, _ := json.MarshalIndent(map[string]any{"notes": notes}, "", "  ")
+	return string(data)
+}
+
+func deRenderForm(d core.Difficulty, errMsg, output string) string {
 	html := `<div class="vuln-form">
 <h3>Secure Notes</h3>
 <form method="POST">
 <input type="hidden" name="action" value="add" />
 <label>Title: <input type="text" name="title" /></label><br/>
 <label>Value: <input type="text" name="value" /></label><br/>`
-	if m.difficulty == core.Hard {
+	if d == core.Hard {
 		html += `<label>Password: <input type="password" name="password" /></label><br/>`
 	}
 	html += `<input type="submit" value="Add Note" />
@@ -216,7 +174,7 @@ func (m *DataExposureModule) renderForm(errMsg, output string) string {
 	return html
 }
 
-// --- Crypto helpers ---
+// --- AES-256-GCM helpers ---
 
 func encryptAES(plaintext, password string) (string, error) {
 	key := pbkdf2.Key([]byte(password), []byte("dvga-salt"), 100000, 32, sha256.New)
@@ -254,17 +212,9 @@ func decryptAES(encoded, password string) (string, error) {
 	if len(data) < nonceSize {
 		return "", fmt.Errorf("ciphertext too short")
 	}
-	nonce, ciphertext := data[:nonceSize], data[nonceSize:]
-	plaintext, err := aesGCM.Open(nil, nonce, ciphertext, nil)
+	plaintext, err := aesGCM.Open(nil, data[:nonceSize], data[nonceSize:], nil)
 	if err != nil {
 		return "", err
 	}
 	return string(plaintext), nil
-}
-
-func truncate(s string, maxLen int) string {
-	if len(s) <= maxLen {
-		return s
-	}
-	return s[:maxLen] + "..."
 }

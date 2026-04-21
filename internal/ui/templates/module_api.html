@@ -1,0 +1,41 @@
+{{define "module_api"}}
+{{.Content}}
+{{if .MoreInfo}}
+<div class="more-info">
+<h3>More Information</h3>
+<ul>
+{{range .MoreInfo}}
+<li><a href="{{.}}" target="_blank" rel="noopener">{{.}}</a></li>
+{{end}}
+</ul>
+</div>
+{{end}}
+<div class="api-badge" style="margin-top:1rem;padding:0.4rem 0.8rem;display:inline-block;background:#6c63ff;color:white;border-radius:4px;font-size:0.8rem;font-weight:600;letter-spacing:0.05em">API Security</div>
+<div class="hint-section" style="margin-top:1.5rem">
+<button id="hint-btn" onclick="loadHint()">Show Hint (1/4)</button>
+<p id="hint-text" style="margin-top:0.5rem;font-style:italic;color:#666"></p>
+</div>
+<script>
+(function(){
+  var level = 1;
+  var moduleID = window.location.pathname.split("/").pop();
+  window.loadHint = function() {
+    if (level > 4) return;
+    fetch("/vulnerabilities/" + moduleID + "/hint?level=" + level)
+      .then(function(r){ return r.json(); })
+      .then(function(data){
+        var el = document.getElementById("hint-text");
+        el.textContent = "Hint " + data.level + "/4: " + data.hint;
+        level++;
+        var btn = document.getElementById("hint-btn");
+        if (level > 4) {
+          btn.textContent = "No more hints";
+          btn.disabled = true;
+        } else {
+          btn.textContent = "Show Hint (" + level + "/4)";
+        }
+      });
+  };
+})();
+</script>
+{{end}}
