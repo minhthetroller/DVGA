@@ -52,8 +52,6 @@ func serveDataExposure(m *CryptoModule, w http.ResponseWriter, r *http.Request) 
 				deEasy(m, w)
 			case core.Medium:
 				deMedium(m, w)
-			case core.Hard:
-				deHard(m, w)
 			}
 			return
 		}
