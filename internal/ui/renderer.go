@@ -26,6 +26,7 @@ type PageData struct {
 type SidebarCategory struct {
 	Name  string
 	Items []SidebarItem
+	Open  bool
 }
 
 // SidebarItem is a single sidebar nav link.

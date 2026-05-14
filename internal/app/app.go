@@ -14,11 +14,20 @@ import (
 	"DVGA/internal/modules/apisec/bola"
 	"DVGA/internal/modules/apisec/bopla"
 	"DVGA/internal/modules/apisec/brokenauth"
+	"DVGA/internal/modules/apisec/businessflow"
+	"DVGA/internal/modules/apisec/consumption"
+	"DVGA/internal/modules/apisec/inventory"
 	"DVGA/internal/modules/apisec/resource"
+	"DVGA/internal/modules/apisec/securitymisconfig"
+	"DVGA/internal/modules/apisec/ssrf"
+	"DVGA/internal/modules/authfailures"
 	"DVGA/internal/modules/brokenac"
+	"DVGA/internal/modules/components"
 	"DVGA/internal/modules/crypto"
 	"DVGA/internal/modules/injection"
 	"DVGA/internal/modules/insecuredesign"
+	"DVGA/internal/modules/integrity"
+	"DVGA/internal/modules/logmonitoring"
 	"DVGA/internal/modules/misconfig"
 	"DVGA/internal/session"
 	"DVGA/internal/ui"
@@ -75,11 +84,20 @@ func New(dbPath, templatesDir, staticDir string) (*App, error) {
 	injection.RegisterAll(registry, store)
 	insecuredesign.RegisterAll(registry, store, sessions)
 	misconfig.RegisterAll(registry, store)
+	components.RegisterAll(registry)
+	authfailures.RegisterAll(registry, store, sessions)
+	integrity.RegisterAll(registry, sessions)
+	logmonitoring.RegisterAll(registry, store, sessions)
 	bola.RegisterAll(registry, store, sessions)
 	brokenauth.RegisterAll(registry, store, sessions)
 	bopla.RegisterAll(registry, store, sessions)
 	resource.RegisterAll(registry, store, sessions)
 	bfla.RegisterAll(registry, store, sessions)
+	businessflow.RegisterAll(registry, store, sessions)
+	ssrf.RegisterAll(registry, store, sessions)
+	securitymisconfig.RegisterAll(registry, store, sessions)
+	inventory.RegisterAll(registry, store, sessions)
+	consumption.RegisterAll(registry, store, sessions)
 
 	// Decorator chain
 	chain := core.NewChain()

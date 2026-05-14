@@ -33,6 +33,9 @@ type Handler struct {
 	sidebarCache      []SidebarCategory
 	sidebarDifficulty core.Difficulty
 	sidebarReady      bool
+
+	apiModuleMu    sync.Mutex
+	apiModuleCache map[string]core.APIModule
 }
 
 func NewHandler(
@@ -46,14 +49,15 @@ func NewHandler(
 	logger zerolog.Logger,
 ) *Handler {
 	return &Handler{
-		renderer:   renderer,
-		registry:   registry,
-		chain:      chain,
-		store:      store,
-		sessions:   sessions,
-		difficulty: difficulty,
-		staticDir:  staticDir,
-		logger:     logger,
+		renderer:       renderer,
+		registry:       registry,
+		chain:          chain,
+		store:          store,
+		sessions:       sessions,
+		difficulty:     difficulty,
+		staticDir:      staticDir,
+		logger:         logger,
+		apiModuleCache: make(map[string]core.APIModule),
 	}
 }
 
@@ -105,18 +109,49 @@ func (h *Handler) mountAPIRoutes(r chi.Router) {
 		for _, rt := range apiMod.APIRoutes() {
 			path := rt.Path
 			modID := id
-			r.With(h.requireAuth).Method(rt.Method, path, http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-				m, err := h.registry.Build(modID, h.difficulty.Get())
+			handler := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+				m, err := h.buildAPIModule(modID, h.difficulty.Get())
 				if err != nil {
 					http.NotFound(w, req)
 					return
 				}
-				if am, ok := m.(core.APIModule); ok {
-					am.ServeAPI(w, req)
-				}
-			}))
+				m.ServeAPI(w, req)
+			})
+			if isPublicAPIRoute(path) {
+				r.Method(rt.Method, path, handler)
+			} else {
+				r.With(h.requireAPIAuth).Method(rt.Method, path, handler)
+			}
 		}
 	}
+}
+
+func (h *Handler) buildAPIModule(id string, d core.Difficulty) (core.APIModule, error) {
+	cacheKey := id + ":" + d.String()
+
+	h.apiModuleMu.Lock()
+	defer h.apiModuleMu.Unlock()
+
+	if cached, ok := h.apiModuleCache[cacheKey]; ok {
+		return cached, nil
+	}
+
+	mod, err := h.registry.Build(id, d)
+	if err != nil {
+		return nil, err
+	}
+	apiMod, ok := mod.(core.APIModule)
+	if !ok {
+		return nil, http.ErrNotSupported
+	}
+	h.apiModuleCache[cacheKey] = apiMod
+	return apiMod, nil
+}
+
+func isPublicAPIRoute(path string) bool {
+	return path == "/api/v1/auth/token" ||
+		path == "/api/v1/auth/refresh" ||
+		path == "/api/v1/partners/payments/webhook"
 }
 
 // --- Auth middleware ---
@@ -131,6 +166,19 @@ func (h *Handler) requireAuth(next http.Handler) http.Handler {
 		sess := h.sessions.Get(cookie.Value)
 		if sess == nil {
 			http.Redirect(w, r, "/login", http.StatusSeeOther)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+func (h *Handler) requireAPIAuth(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		cookie, err := r.Cookie("session_id")
+		if err != nil || cookie.Value == "" || h.sessions.Get(cookie.Value) == nil {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusUnauthorized)
+			json.NewEncoder(w).Encode(map[string]string{"error": "unauthenticated"})
 			return
 		}
 		next.ServeHTTP(w, r)
@@ -267,11 +315,11 @@ func (h *Handler) baseData(title, activeID string, sess *session.Session) PageDa
 		Username:   username,
 		Difficulty: h.difficulty.Get().String(),
 		ActiveID:   activeID,
-		Sidebar:    h.buildSidebar(),
+		Sidebar:    h.buildSidebar(activeID),
 	}
 }
 
-func (h *Handler) buildSidebar() []SidebarCategory {
+func (h *Handler) buildSidebar(activeID string) []SidebarCategory {
 	current := h.difficulty.Get()
 
 	// Check cache
@@ -279,7 +327,7 @@ func (h *Handler) buildSidebar() []SidebarCategory {
 	if h.sidebarReady && h.sidebarDifficulty == current {
 		cached := h.sidebarCache
 		h.sidebarMu.RUnlock()
-		return cached
+		return markActiveSidebarCategory(cached, activeID)
 	}
 	h.sidebarMu.RUnlock()
 
@@ -314,7 +362,23 @@ func (h *Handler) buildSidebar() []SidebarCategory {
 	h.sidebarReady = true
 	h.sidebarMu.Unlock()
 
-	return sidebar
+	return markActiveSidebarCategory(sidebar, activeID)
+}
+
+func markActiveSidebarCategory(sidebar []SidebarCategory, activeID string) []SidebarCategory {
+	result := make([]SidebarCategory, len(sidebar))
+	for i, cat := range sidebar {
+		result[i] = cat
+		result[i].Items = append([]SidebarItem(nil), cat.Items...)
+		result[i].Open = false
+		for _, item := range cat.Items {
+			if item.ID == activeID {
+				result[i].Open = true
+				break
+			}
+		}
+	}
+	return result
 }
 
 func (h *Handler) hintAPI(w http.ResponseWriter, r *http.Request) {

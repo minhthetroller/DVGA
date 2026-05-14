@@ -105,13 +105,21 @@ func (s *Store) Seed() error {
 		return err
 	}
 
+	auditEvents := []AuditEvent{
+		{Username: "admin", EventType: "login", Outcome: "success", IPAddress: "127.0.0.1", Severity: "info", Message: "Admin login succeeded", CreatedAt: now.Add(-6 * time.Hour)},
+		{Username: "gordonb", EventType: "profile_view", Outcome: "success", IPAddress: "127.0.0.1", Severity: "info", Message: "Profile opened", CreatedAt: now.Add(-5 * time.Hour)},
+	}
+	if err := s.db.Create(&auditEvents).Error; err != nil {
+		return err
+	}
+
 	return nil
 }
 
 // Reset drops all data and re-seeds.
 func (s *Store) Reset() error {
 	for _, tbl := range []string{
-		"notifications", "api_tokens", "invoices", "documents", "orders",
+		"audit_events", "notifications", "remember_tokens", "api_tokens", "invoices", "documents", "orders",
 		"reset_tokens", "comments", "secrets", "users",
 	} {
 		s.db.Exec("DELETE FROM " + tbl)
@@ -119,4 +127,3 @@ func (s *Store) Reset() error {
 	s.db.Exec("DELETE FROM sqlite_sequence")
 	return s.Seed()
 }
-

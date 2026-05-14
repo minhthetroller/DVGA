@@ -3,8 +3,8 @@
 A purposely insecure web application for learning and practising web security concepts.  
 
 DVGA includes:
-- 5 OWASP Top 10 (2021) web security categories (A01 to A05)
-- 5 OWASP API Security Top 10 (2023) vulnerabilities (API1 to API5)
+- 9 OWASP Top 10 (2021) web security categories (A01 to A09)
+- 10 OWASP API Security Top 10 (2023) vulnerabilities (API1 to API10)
 - Easy, Medium, and Hard difficulty modes
 - A 4-level progressive hint system
 
@@ -16,8 +16,8 @@ DVGA includes:
 
 - [Features](#features)
 - [Vulnerability Coverage](#vulnerability-coverage)
-     - [Web Modules (OWASP Top 10 2021: A01-A05)](#web-modules-owasp-top-10-2021-a01-a05)
-     - [API Modules (OWASP API Security 2023: API1–API5)](#api-modules-owasp-api-security-2023-api1-api5)
+     - [Web Modules (OWASP Top 10 2021: A01-A09)](#web-modules-owasp-top-10-2021-a01-a09)
+     - [API Modules (OWASP API Security 2023: API1–API10)](#api-modules-owasp-api-security-2023-api1-api10)
 - [Difficulty Levels](#difficulty-levels)
 - [Hint System](#hint-system)
 - [Getting Started](#getting-started)
@@ -39,10 +39,10 @@ DVGA includes:
 
 ## Features
 
-- 27 vulnerability modules across web and API contexts
-- Coverage of 10 security categories total:
-     - 5 OWASP Top 10 (2021) web categories (A01 to A05)
-     - 5 OWASP API Security (2023) vulnerabilities (API1 to API5)
+- 50 vulnerability modules across web and API contexts
+- Coverage of 19 security categories total:
+     - 9 OWASP Top 10 (2021) web categories (A01 to A09)
+     - 10 OWASP API Security (2023) vulnerabilities (API1 to API10)
 - Per-module **Easy → Medium → Hard** difficulty progression
 - **4-level progressive hints** revealed on demand (no spoilers unless you ask)
 - Realistic-looking UI — vulnerabilities are disguised as normal application features
@@ -53,7 +53,7 @@ DVGA includes:
 
 ## Vulnerability Coverage
 
-### Web Modules (OWASP Top 10 2021: A01-A05)
+### Web Modules (OWASP Top 10 2021: A01-A09)
 
 | Module | ID | OWASP Category | What it demonstrates |
 |---|---|---|---|
@@ -71,16 +71,29 @@ DVGA includes:
 | Forgot Password | `pwd-reset` | A04 Insecure Design | Insecure Password Reset: unlimited guesses → weak rate limit → proper lock-out |
 | System Status | `debug-info` | A05 Security Misconfiguration | Info Disclosure: full env vars + stack trace → partial → safe generic errors |
 | Security Check | `security-headers` | A05 Security Misconfiguration | Missing Headers: none → minimal → full CSP / HSTS / X-Frame-Options |
+| Component Inventory | `component-inventory` | A06 Vulnerable and Outdated Components | Component exposure: exact vulnerable versions → partial fingerprints → supported status only |
+| Legacy Markdown Preview | `legacy-markdown` | A06 Vulnerable and Outdated Components | Outdated renderer: raw HTML → script stripping bypass → escaped safe preview |
+| Account Recovery Lookup | `user-enumeration` | A07 Identification and Authentication Failures | User enumeration: explicit existence → hidden metadata leak → uniform response |
+| Remember Me Login | `remember-me` | A07 Identification and Authentication Failures | Persistent auth: forgeable cookie → weak static signature → server-side random token |
+| Plugin Update Center | `plugin-update` | A08 Software and Data Integrity Failures | Update trust: unverified metadata → attacker-supplied checksum → allowlisted pinned update |
+| Workflow Import | `workflow-import` | A08 Software and Data Integrity Failures | Import integrity: unsigned package → weak static signature → HMAC + session ownership |
+| Login Audit | `login-audit` | A09 Security Logging and Monitoring Failures | Audit gaps: success-only logging → incomplete failure logs → structured logs + alerts |
+| Audit Log Viewer | `log-tampering` | A09 Security Logging and Monitoring Failures | Log tampering: client delete/forge → client role bypass → append-only server logs |
 
-### API Modules (OWASP API Security 2023: API1–API5)
+### API Modules (OWASP API Security 2023: API1–API10)
 
 | API ID | Vulnerability | Scenario modules | Example endpoints |
 |---|---|---|---|
 | API1 | Broken Object Level Authorization | `member-profile`, `order-tracker`, `document-fetch` | `GET /api/v1/members/{id}`, `GET /api/v1/orders/{id}`, `GET /api/v1/documents/{id}` |
 | API2 | Broken Authentication | `mobile-login`, `session-renewal` | `POST /api/v1/auth/token`, `POST /api/v1/auth/refresh` |
-| API3 | Broken Object Property Level Authorization | `profile-setting`, `order-details`, `invoice-adjuster` | `PATCH /api/v1/members/me`, `GET /api/v1/orders/{id}/details`, `PATCH /api/v1/invoices/{id}` |
+| API3 | Broken Object Property Level Authorization | `profile-settings`, `order-details`, `invoice-adjuster` | `PATCH /api/v1/members/me`, `GET /api/v1/orders/{id}/details`, `PATCH /api/v1/invoices/{id}` |
 | API4 | Unrestricted Resource Consumption | `report-generator`, `notification-blast` | `POST /api/v1/reports/generate`, `POST /api/v1/notifications/send` |
 | API5 | Broken Function Level Authorization | `user-status-toggle`, `support-tools`, `refund-processor` | `POST /api/v1/members/{id}/suspend`, `GET /api/v1/admin/dashboard`, `POST /api/v1/orders/{id}/refund` |
+| API6 | Unrestricted Access to Sensitive Business Flows | `promo-code-redemption`, `flash-sale-reservation`, `order-cancellation-window` | `POST /api/v1/promotions/redeem`, `POST /api/v1/events/{id}/reserve`, `POST /api/v1/orders/{id}/cancel` |
+| API7 | Server-Side Request Forgery | `url-preview`, `webhook-tester`, `avatar-import` | `POST /api/v1/tools/url-preview`, `POST /api/v1/integrations/webhook/test`, `POST /api/v1/members/avatar/import` |
+| API8 | Security Misconfiguration | `debug-config`, `cors-policy`, `verbose-errors` | `GET /api/v1/system/debug`, `GET /api/v1/misconfig/cors`, `GET /api/v1/system/query` |
+| API9 | Improper Inventory Management | `legacy-members-v0`, `shadow-admin-users`, `stale-openapi` | `GET /api/v0/members/{id}`, `GET /api/internal/users`, `GET /api/v1/openapi.json` |
+| API10 | Unsafe Consumption of APIs | `payment-webhook`, `crm-profile-sync`, `shipping-status-sync` | `POST /api/v1/partners/payments/webhook`, `POST /api/v1/partners/crm/profile`, `POST /api/v1/partners/shipping/status` |
 
 ## Difficulty levels
 
