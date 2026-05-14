@@ -71,6 +71,8 @@ func TestDataExposure_Hard(t *testing.T) {
 		body := w.Body.String()
 		// The stored value should be ciphertext (base64), not plaintext
 		assert.NotContains(t, body, "topsecret")
+		assert.Contains(t, body, "Decrypt a Note")
+		assert.Contains(t, body, `"notes"`)
 	})
 
 	t.Run("missing password returns error", func(t *testing.T) {
@@ -107,12 +109,18 @@ func TestDataExposure_Hard(t *testing.T) {
 		wDecrypt := doModuleRequest(t, app, "data-exposure", http.MethodPost, "/",
 			formBody("action", "decrypt", "secret_value", ciphertext, "password", "pass123"),
 			cookie)
+		assert.Contains(t, wDecrypt.Body.String(), "Decrypt a Note")
+		assert.Contains(t, wDecrypt.Body.String(), `"notes"`)
 		assert.Contains(t, wDecrypt.Body.String(), "DECRYPTED_VALUE")
 
 		// Wrong password must fail
 		wWrong := doModuleRequest(t, app, "data-exposure", http.MethodPost, "/",
 			formBody("action", "decrypt", "secret_value", ciphertext, "password", "wrongpass"),
 			cookie)
-		assert.Contains(t, wWrong.Body.String(), "Decryption failed")
+		wrongBody := wWrong.Body.String()
+		assert.Contains(t, wrongBody, "Decryption failed")
+		assert.Contains(t, wrongBody, "Decrypt a Note")
+		assert.Greater(t, strings.Index(wrongBody, "Decryption failed"), strings.Index(wrongBody, "Decrypt a Note"))
+		assert.Greater(t, strings.Index(wrongBody, "Decryption failed"), strings.Index(wrongBody, `"notes"`))
 	})
 }

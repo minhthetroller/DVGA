@@ -62,6 +62,10 @@ func deHandleAdd(m *CryptoModule, w http.ResponseWriter, r *http.Request) {
 	value := r.FormValue("value")
 	password := r.FormValue("password")
 	if title == "" || value == "" {
+		if m.difficulty == core.Hard {
+			fmt.Fprint(w, deRenderHardPage(m, "Title and value are required.", ""))
+			return
+		}
 		fmt.Fprint(w, deRenderForm(m.difficulty, "Title and value are required.", ""))
 		return
 	}
@@ -73,12 +77,12 @@ func deHandleAdd(m *CryptoModule, w http.ResponseWriter, r *http.Request) {
 		stored = base64.StdEncoding.EncodeToString([]byte(value))
 	case core.Hard:
 		if password == "" {
-			fmt.Fprint(w, deRenderForm(m.difficulty, "Password required.", ""))
+			fmt.Fprint(w, deRenderHardPage(m, "Password required.", ""))
 			return
 		}
 		enc, err := encryptAES(value, password)
 		if err != nil {
-			fmt.Fprint(w, deRenderForm(m.difficulty, "Encryption error.", ""))
+			fmt.Fprint(w, deRenderHardPage(m, "Encryption error.", ""))
 			return
 		}
 		stored = enc
@@ -99,11 +103,11 @@ func deHandleDecrypt(m *CryptoModule, w http.ResponseWriter, r *http.Request) {
 	password := r.FormValue("password")
 	decrypted, err := decryptAES(secretValue, password)
 	if err != nil {
-		fmt.Fprint(w, deRenderForm(m.difficulty, "Decryption failed.", ""))
+		fmt.Fprint(w, deRenderHardDecryptPage(m, "Decryption failed.", ""))
 		return
 	}
 	resp, _ := json.Marshal(map[string]string{"decrypted": decrypted})
-	fmt.Fprint(w, deRenderForm(m.difficulty, "", `<pre class="output">`+string(resp)+`</pre>`))
+	fmt.Fprint(w, deRenderHardDecryptPage(m, "", `<pre class="output">`+string(resp)+`</pre>`))
 }
 
 // deRenderNotes loads all secrets and renders them as stored (no transform).
@@ -124,8 +128,12 @@ func deMedium(m *CryptoModule, w http.ResponseWriter) {
 }
 
 func deHard(m *CryptoModule, w http.ResponseWriter) {
-	output := deRenderNotes(m)
-	output += `<div class="vuln-form" style="margin-top:1rem">
+	fmt.Fprint(w, deRenderHardPage(m, "", ""))
+}
+
+func deRenderHardPage(m *CryptoModule, errMsg, output string) string {
+	body := deRenderNotes(m)
+	body += `<div class="vuln-form" style="margin-top:1rem">
 <h4>Decrypt a Note</h4>
 <form method="POST">
 <input type="hidden" name="action" value="decrypt" />
@@ -134,7 +142,30 @@ func deHard(m *CryptoModule, w http.ResponseWriter) {
 <input type="submit" value="Decrypt" />
 </form>
 </div>`
-	fmt.Fprint(w, deRenderForm(m.difficulty, "", output))
+	if output != "" {
+		body += output
+	}
+	return deRenderForm(m.difficulty, errMsg, body)
+}
+
+func deRenderHardDecryptPage(m *CryptoModule, errMsg, output string) string {
+	body := deRenderNotes(m)
+	body += `<div class="vuln-form" style="margin-top:1rem">
+<h4>Decrypt a Note</h4>
+<form method="POST">
+<input type="hidden" name="action" value="decrypt" />
+<label>Encrypted Value: <input type="text" name="secret_value" size="40" /></label><br/>
+<label>Password: <input type="password" name="password" /></label>
+<input type="submit" value="Decrypt" />
+</form>
+</div>`
+	if output != "" {
+		body += output
+	}
+	if errMsg != "" {
+		body += `<div class="error">` + errMsg + `</div>`
+	}
+	return deRenderForm(m.difficulty, "", body)
 }
 
 func deNotesJSON(secrets []database.Secret, transform func(string) string) string {
