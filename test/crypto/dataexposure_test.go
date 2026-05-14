@@ -82,6 +82,16 @@ func TestDataExposure_Hard(t *testing.T) {
 		assert.Contains(t, w.Body.String(), "Password required")
 	})
 
+	t.Run("missing title or value keeps hard decrypt section and notes visible", func(t *testing.T) {
+		w := doModuleRequest(t, app, "data-exposure", http.MethodPost, "/",
+			formBody("action", "add", "title", "", "value", "missing-title", "password", "pass123"),
+			cookie)
+		body := w.Body.String()
+		assert.Contains(t, body, "Title and value are required")
+		assert.Contains(t, body, "Decrypt a Note")
+		assert.Contains(t, body, `"notes"`)
+	})
+
 	t.Run("decrypt with correct password reveals plaintext", func(t *testing.T) {
 		// Add a note encrypted with "pass123"
 		doModuleRequest(t, app, "data-exposure", http.MethodPost, "/",
@@ -122,5 +132,38 @@ func TestDataExposure_Hard(t *testing.T) {
 		assert.Contains(t, wrongBody, "Decrypt a Note")
 		assert.Greater(t, strings.Index(wrongBody, "Decryption failed"), strings.Index(wrongBody, "Decrypt a Note"))
 		assert.Greater(t, strings.Index(wrongBody, "Decryption failed"), strings.Index(wrongBody, `"notes"`))
+	})
+}
+
+func TestDataExposure_DecryptAction_NonHardIgnored(t *testing.T) {
+	t.Run("easy mode ignores decrypt action", func(t *testing.T) {
+		app := newTestApp(t)
+		token := app.mustLogin(adminUsername, adminPassword)
+		cookie := app.sessionCookie(token)
+
+		w := doModuleRequest(t, app, "data-exposure", http.MethodPost, "/",
+			formBody("action", "decrypt", "secret_value", "anything", "password", "wrong"),
+			cookie)
+		body := w.Body.String()
+
+		assert.NotContains(t, body, "Decrypt a Note")
+		assert.NotContains(t, body, "Decryption failed")
+		assert.Contains(t, body, "Add Note")
+	})
+
+	t.Run("medium mode ignores decrypt action", func(t *testing.T) {
+		app := newTestApp(t)
+		app.setDifficulty(core.Medium)
+		token := app.mustLogin(adminUsername, adminPassword)
+		cookie := app.sessionCookie(token)
+
+		w := doModuleRequest(t, app, "data-exposure", http.MethodPost, "/",
+			formBody("action", "decrypt", "secret_value", "anything", "password", "wrong"),
+			cookie)
+		body := w.Body.String()
+
+		assert.NotContains(t, body, "Decrypt a Note")
+		assert.NotContains(t, body, "Decryption failed")
+		assert.Contains(t, body, "Add Note")
 	})
 }

@@ -43,7 +43,18 @@ func serveDataExposure(m *CryptoModule, w http.ResponseWriter, r *http.Request) 
 			deHandleAdd(m, w, r)
 			return
 		case "decrypt":
-			deHandleDecrypt(m, w, r)
+			if m.difficulty == core.Hard {
+				deHandleDecrypt(m, w, r)
+				return
+			}
+			switch m.difficulty {
+			case core.Easy:
+				deEasy(m, w)
+			case core.Medium:
+				deMedium(m, w)
+			case core.Hard:
+				deHard(m, w)
+			}
 			return
 		}
 	}
@@ -132,23 +143,16 @@ func deHard(m *CryptoModule, w http.ResponseWriter) {
 }
 
 func deRenderHardPage(m *CryptoModule, errMsg, output string) string {
-	body := deRenderNotes(m)
-	body += `<div class="vuln-form" style="margin-top:1rem">
-<h4>Decrypt a Note</h4>
-<form method="POST">
-<input type="hidden" name="action" value="decrypt" />
-<label>Encrypted Value: <input type="text" name="secret_value" size="40" /></label><br/>
-<label>Password: <input type="password" name="password" /></label>
-<input type="submit" value="Decrypt" />
-</form>
-</div>`
-	if output != "" {
-		body += output
-	}
+	body := deRenderHardContent(m, output, "")
 	return deRenderForm(m.difficulty, errMsg, body)
 }
 
 func deRenderHardDecryptPage(m *CryptoModule, errMsg, output string) string {
+	body := deRenderHardContent(m, output, errMsg)
+	return deRenderForm(m.difficulty, "", body)
+}
+
+func deRenderHardContent(m *CryptoModule, output, inlineErr string) string {
 	body := deRenderNotes(m)
 	body += `<div class="vuln-form" style="margin-top:1rem">
 <h4>Decrypt a Note</h4>
@@ -162,10 +166,10 @@ func deRenderHardDecryptPage(m *CryptoModule, errMsg, output string) string {
 	if output != "" {
 		body += output
 	}
-	if errMsg != "" {
-		body += `<div class="error">` + errMsg + `</div>`
+	if inlineErr != "" {
+		body += `<div class="error">` + inlineErr + `</div>`
 	}
-	return deRenderForm(m.difficulty, "", body)
+	return body
 }
 
 func deNotesJSON(secrets []database.Secret, transform func(string) string) string {
