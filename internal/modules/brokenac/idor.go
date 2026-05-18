@@ -88,15 +88,28 @@ func idorHard(m *BrokenACModule, w http.ResponseWriter, r *http.Request, userID 
 		fmt.Fprint(w, idorRenderForm(`<div class="error">Session expired.</div>`))
 		return
 	}
-	if sess.Role != "admin" && sess.UserID != userID {
+
+	//zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz
+	isAdmin := sess.Role == "admin"
+	isOwnProfile := sess.UserID == userID
+
+	if !isAdmin && !isOwnProfile {
 		fmt.Fprint(w, idorRenderForm(`<div class="error">Access denied.</div>`))
 		return
 	}
+
 	var user database.User
 	if err := m.store.DB().First(&user, userID).Error; err != nil {
 		fmt.Fprint(w, idorRenderForm(`<div class="error">Profile not found.</div>`))
 		return
 	}
+
+	if isAdmin && !isOwnProfile {
+		// Admin viewing another user: only public profile metadata.
+		fmt.Fprint(w, idorRenderForm(idorFormatJSON(user, nil)))
+		return
+	}
+
 	var secrets []database.Secret
 	m.store.DB().Where("user_id = ?", userID).Find(&secrets)
 	fmt.Fprint(w, idorRenderForm(idorFormatJSON(user, secrets)))
@@ -135,4 +148,3 @@ func idorRenderForm(output string) string {
 	}
 	return html
 }
-
