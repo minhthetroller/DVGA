@@ -38,41 +38,42 @@ func TestIDOR_Easy(t *testing.T) {
 	})
 }
 
-// TestIDOR_Medium verifies that role is taken from server-side session, not the role cookie.
+// TestIDOR_Medium verifies the intentionally client-controlled role cookie check.
 func TestIDOR_Medium(t *testing.T) {
 	app := newTestApp(t)
 	app.setDifficulty(core.Medium)
 
-	t.Run("unauthenticated request returns access denied", func(t *testing.T) {
+	t.Run("request without role cookie returns access denied", func(t *testing.T) {
 		w := doModuleRequest(t, app, "idor", http.MethodGet, "/?user_id=1", nil)
-		assert.Contains(t, w.Body.String(), "Not authenticated")
+		assert.Contains(t, w.Body.String(), "Access denied")
 	})
 
-	t.Run("non-admin session returns access denied", func(t *testing.T) {
+	t.Run("non-admin session without role cookie returns access denied", func(t *testing.T) {
 		token := app.mustLogin(gordonUsername, gordonPassword)
 		w := doModuleRequest(t, app, "idor", http.MethodGet, "/?user_id=1", nil,
 			app.sessionCookie(token))
 		assert.Contains(t, w.Body.String(), "Access denied")
 	})
 
-	t.Run("forged role=admin cookie is ignored without valid admin session", func(t *testing.T) {
+	t.Run("forged role=admin cookie grants cross-user access", func(t *testing.T) {
 		token := app.mustLogin(gordonUsername, gordonPassword)
 		w := doModuleRequest(t, app, "idor", http.MethodGet, "/?user_id=1", nil,
 			app.sessionCookie(token), roleCookie("admin"))
-		assert.Contains(t, w.Body.String(), "Access denied")
+		body := w.Body.String()
+		assert.Contains(t, body, "admin")
+		assert.Contains(t, body, "Admin API Key")
 	})
 
-	t.Run("admin session can view any profile", func(t *testing.T) {
-		token := app.mustLogin(adminUsername, adminPassword)
+	t.Run("role=admin cookie alone can view any profile", func(t *testing.T) {
 		w := doModuleRequest(t, app, "idor", http.MethodGet, "/?user_id=2", nil,
-			app.sessionCookie(token))
+			roleCookie("admin"))
 		assert.Contains(t, w.Body.String(), "gordonb")
 	})
 
-	t.Run("expired or invalid session returns access denied", func(t *testing.T) {
+	t.Run("non-admin role cookie returns access denied", func(t *testing.T) {
 		w := doModuleRequest(t, app, "idor", http.MethodGet, "/?user_id=1", nil,
-			app.sessionCookie("invalid-token-xyz"))
-		assert.Contains(t, w.Body.String(), "Session expired")
+			roleCookie("user"))
+		assert.Contains(t, w.Body.String(), "Access denied")
 	})
 }
 
