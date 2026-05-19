@@ -131,6 +131,29 @@ func (a *testApp) sessionCookie(token string) *http.Cookie {
 return &http.Cookie{Name: "session_id", Value: token}
 }
 
+func (a *testApp) loginSigned(username, password string) (string, bool) {
+var user database.User
+if err := a.store.DB().Where("username = ? AND password = ?", username, password).
+First(&user).Error; err != nil {
+return "", false
+}
+token := a.sessions.CreateSigned(int(user.ID), user.Username, user.Role)
+return token, true
+}
+
+func (a *testApp) mustLoginSigned(username, password string) string {
+a.t.Helper()
+token, ok := a.loginSigned(username, password)
+if !ok {
+a.t.Fatalf("mustLoginSigned: rejected credentials for %q", username)
+}
+return token
+}
+
+func (a *testApp) signedSessionCookie(token string) *http.Cookie {
+return &http.Cookie{Name: "signed_session", Value: token}
+}
+
 func (a *testApp) buildModule(id string) core.VulnModule {
 a.t.Helper()
 m, err := a.registry.Build(id, a.difficulty.Get())
