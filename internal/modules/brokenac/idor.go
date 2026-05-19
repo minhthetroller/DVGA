@@ -62,8 +62,17 @@ func idorEasy(m *BrokenACModule, w http.ResponseWriter, userID int) {
 }
 
 func idorMedium(m *BrokenACModule, w http.ResponseWriter, r *http.Request, userID int) {
-	roleCookie, err := r.Cookie("role")
-	if err != nil || roleCookie.Value != "admin" {
+	cookie, err := r.Cookie("session_id")
+	if err != nil {
+		fmt.Fprint(w, idorRenderForm(`<div class="error">Not authenticated.</div>`))
+		return
+	}
+	sess := m.sess.Get(cookie.Value)
+	if sess == nil {
+		fmt.Fprint(w, idorRenderForm(`<div class="error">Session expired.</div>`))
+		return
+	}
+	if sess.Role != "admin" {
 		fmt.Fprint(w, idorRenderForm(`<div class="error">Access denied.</div>`))
 		return
 	}
@@ -89,7 +98,7 @@ func idorHard(m *BrokenACModule, w http.ResponseWriter, r *http.Request, userID 
 		return
 	}
 
-	//zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz
+	// Set isAdmin state to either true of false based on the currrent session role
 	isAdmin := sess.Role == "admin"
 	isOwnProfile := sess.UserID == userID
 
