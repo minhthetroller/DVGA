@@ -87,18 +87,17 @@ func idorMedium(m *BrokenACModule, w http.ResponseWriter, r *http.Request, userI
 }
 
 func idorHard(m *BrokenACModule, w http.ResponseWriter, r *http.Request, userID int) {
-	cookie, err := r.Cookie("session_id")
+	cookie, err := r.Cookie("signed_session")
 	if err != nil {
 		fmt.Fprint(w, idorRenderForm(`<div class="error">Not authenticated.</div>`))
 		return
 	}
-	sess := m.sess.Get(cookie.Value)
+	sess := m.sess.GetSigned(cookie.Value)
 	if sess == nil {
-		fmt.Fprint(w, idorRenderForm(`<div class="error">Session expired.</div>`))
+		fmt.Fprint(w, idorRenderForm(`<div class="error">Session invalid or expired.</div>`))
 		return
 	}
 
-	// Set isAdmin state to either true of false based on the currrent session role
 	isAdmin := sess.Role == "admin"
 	isOwnProfile := sess.UserID == userID
 
@@ -114,7 +113,6 @@ func idorHard(m *BrokenACModule, w http.ResponseWriter, r *http.Request, userID 
 	}
 
 	if isAdmin && !isOwnProfile {
-		// Admin viewing another user: only public profile metadata.
 		fmt.Fprint(w, idorRenderForm(idorFormatJSON(user, nil)))
 		return
 	}
