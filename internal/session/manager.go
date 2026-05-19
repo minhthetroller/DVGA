@@ -2,8 +2,13 @@
 package session
 
 import (
+	"crypto/hmac"
 	"crypto/rand"
+	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
+	"encoding/json"
+	"strings"
 	"sync"
 	"time"
 )
@@ -30,13 +35,19 @@ type Manager struct {
 	loginAttempts map[string]*AttemptTracker
 	resetAttempts map[string]*AttemptTracker
 	stopCh        chan struct{}
+	secret        []byte
 }
 
 func NewManager() *Manager {
+	secret := make([]byte, 32)
+	if _, err := rand.Read(secret); err != nil {
+		panic("session: failed to generate HMAC secret: " + err.Error())
+	}
 	return &Manager{
 		sessions:      make(map[string]*Session),
 		loginAttempts: make(map[string]*AttemptTracker),
 		resetAttempts: make(map[string]*AttemptTracker),
+		secret:        secret,
 	}
 }
 
@@ -174,4 +185,68 @@ func generateToken() string {
 	b := make([]byte, 32)
 	_, _ = rand.Read(b)
 	return hex.EncodeToString(b)
+}
+
+type signedPayload struct {
+	UserID   int    `json:"uid"`
+	Username string `json:"usr"`
+	Role     string `json:"rol"`
+	Expiry   int64  `json:"exp"`
+}
+
+// CreateSigned returns a stateless HMAC-SHA256-signed token encoding the session claims.
+// No server-side lookup is required for GetSigned validation.
+func (m *Manager) CreateSigned(userID int, username, role string) string {
+	payload := signedPayload{
+		UserID:   userID,
+		Username: username,
+		Role:     role,
+		Expiry:   time.Now().Add(24 * time.Hour).Unix(),
+	}
+	raw, _ := json.Marshal(payload)
+	payloadB64 := base64.RawURLEncoding.EncodeToString(raw)
+
+	mac := hmac.New(sha256.New, m.secret)
+	mac.Write([]byte(payloadB64))
+	sigB64 := base64.RawURLEncoding.EncodeToString(mac.Sum(nil))
+
+	return payloadB64 + "." + sigB64
+}
+
+// GetSigned validates the HMAC signature and expiry, then returns the embedded session.
+// Returns nil if the token is malformed, tampered, or expired.
+func (m *Manager) GetSigned(token string) *Session {
+	parts := strings.SplitN(token, ".", 2)
+	if len(parts) != 2 {
+		return nil
+	}
+	payloadB64, sigB64 := parts[0], parts[1]
+
+	mac := hmac.New(sha256.New, m.secret)
+	mac.Write([]byte(payloadB64))
+	expectedSig := base64.RawURLEncoding.EncodeToString(mac.Sum(nil))
+
+	if !hmac.Equal([]byte(sigB64), []byte(expectedSig)) {
+		return nil
+	}
+
+	raw, err := base64.RawURLEncoding.DecodeString(payloadB64)
+	if err != nil {
+		return nil
+	}
+
+	var p signedPayload
+	if err := json.Unmarshal(raw, &p); err != nil {
+		return nil
+	}
+	if time.Now().Unix() > p.Expiry {
+		return nil
+	}
+
+	return &Session{
+		UserID:    p.UserID,
+		Username:  p.Username,
+		Role:      p.Role,
+		CreatedAt: time.Now(),
+	}
 }
