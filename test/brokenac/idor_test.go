@@ -38,69 +38,106 @@ func TestIDOR_Easy(t *testing.T) {
 	})
 }
 
-// TestIDOR_Medium verifies the role cookie check (client-forgeable) is used.
+// TestIDOR_Medium verifies that role is taken from server-side session, not the role cookie.
 func TestIDOR_Medium(t *testing.T) {
 	app := newTestApp(t)
 	app.setDifficulty(core.Medium)
-	token := app.mustLogin(gordonUsername, gordonPassword)
-	sessionCookie := app.sessionCookie(token)
 
-	t.Run("no role cookie returns access denied", func(t *testing.T) {
-		w := doModuleRequest(t, app, "idor", http.MethodGet, "/?user_id=1", nil, sessionCookie)
+	t.Run("unauthenticated request returns access denied", func(t *testing.T) {
+		w := doModuleRequest(t, app, "idor", http.MethodGet, "/?user_id=1", nil)
+		assert.Contains(t, w.Body.String(), "Not authenticated")
+	})
+
+	t.Run("non-admin session returns access denied", func(t *testing.T) {
+		token := app.mustLogin(gordonUsername, gordonPassword)
+		w := doModuleRequest(t, app, "idor", http.MethodGet, "/?user_id=1", nil,
+			app.sessionCookie(token))
 		assert.Contains(t, w.Body.String(), "Access denied")
 	})
 
-	t.Run("forged role=admin cookie grants access to any profile", func(t *testing.T) {
+	t.Run("forged role=admin cookie is ignored without valid admin session", func(t *testing.T) {
+		token := app.mustLogin(gordonUsername, gordonPassword)
 		w := doModuleRequest(t, app, "idor", http.MethodGet, "/?user_id=1", nil,
-			sessionCookie, roleCookie("admin"))
-		assert.Contains(t, w.Body.String(), "admin")
+			app.sessionCookie(token), roleCookie("admin"))
+		assert.Contains(t, w.Body.String(), "Access denied")
 	})
 
-	t.Run("forged role=admin allows cross-user fetch", func(t *testing.T) {
-		w := doModuleRequest(t, app, "idor", http.MethodGet, "/?user_id=3", nil,
-			sessionCookie, roleCookie("admin"))
-		assert.Contains(t, w.Body.String(), "pablo")
-	})
-}
-
-// TestIDOR_Hard verifies proper server-side session enforcement.
-func TestIDOR_Hard(t *testing.T) {
-	app := newTestApp(t)
-	app.setDifficulty(core.Hard)
-
-	t.Run("admin can view any user profile", func(t *testing.T) {
+	t.Run("admin session can view any profile", func(t *testing.T) {
 		token := app.mustLogin(adminUsername, adminPassword)
 		w := doModuleRequest(t, app, "idor", http.MethodGet, "/?user_id=2", nil,
 			app.sessionCookie(token))
 		assert.Contains(t, w.Body.String(), "gordonb")
 	})
 
-	t.Run("regular user can view own profile", func(t *testing.T) {
-		token := app.mustLogin(gordonUsername, gordonPassword)
+	t.Run("expired or invalid session returns access denied", func(t *testing.T) {
+		w := doModuleRequest(t, app, "idor", http.MethodGet, "/?user_id=1", nil,
+			app.sessionCookie("invalid-token-xyz"))
+		assert.Contains(t, w.Body.String(), "Session expired")
+	})
+}
+
+// TestIDOR_Hard verifies HMAC-signed stateless token enforcement.
+func TestIDOR_Hard(t *testing.T) {
+	app := newTestApp(t)
+	app.setDifficulty(core.Hard)
+
+	t.Run("admin can view any user profile", func(t *testing.T) {
+		token := app.mustLoginSigned(adminUsername, adminPassword)
 		w := doModuleRequest(t, app, "idor", http.MethodGet, "/?user_id=2", nil,
-			app.sessionCookie(token))
+			app.signedSessionCookie(token))
+		assert.Contains(t, w.Body.String(), "gordonb")
+	})
+
+	t.Run("regular user can view own profile", func(t *testing.T) {
+		token := app.mustLoginSigned(gordonUsername, gordonPassword)
+		w := doModuleRequest(t, app, "idor", http.MethodGet, "/?user_id=2", nil,
+			app.signedSessionCookie(token))
 		assert.Contains(t, w.Body.String(), "gordonb")
 	})
 
 	t.Run("regular user cannot view another user's profile", func(t *testing.T) {
-		token := app.mustLogin(gordonUsername, gordonPassword)
-		// Gordon (ID 2) trying to access Pablo (ID 3)
+		token := app.mustLoginSigned(gordonUsername, gordonPassword)
 		w := doModuleRequest(t, app, "idor", http.MethodGet, "/?user_id=3", nil,
-			app.sessionCookie(token))
+			app.signedSessionCookie(token))
 		assert.Contains(t, w.Body.String(), "Access denied")
 		assert.NotContains(t, w.Body.String(), "pablo")
 	})
 
-	t.Run("forged role cookie is ignored", func(t *testing.T) {
-		token := app.mustLogin(gordonUsername, gordonPassword)
-		// Even with role=admin cookie, Gordon cannot view Pablo's profile
+	t.Run("tampered token is rejected", func(t *testing.T) {
+		token := app.mustLoginSigned(gordonUsername, gordonPassword)
+		runes := []rune(token)
+		runes[0] = 'X'
+		tampered := string(runes)
+		w := doModuleRequest(t, app, "idor", http.MethodGet, "/?user_id=1", nil,
+			app.signedSessionCookie(tampered))
+		assert.Contains(t, w.Body.String(), "invalid or expired")
+	})
+
+	t.Run("forged role=admin cookie is ignored — HMAC token governs", func(t *testing.T) {
+		token := app.mustLoginSigned(gordonUsername, gordonPassword)
 		w := doModuleRequest(t, app, "idor", http.MethodGet, "/?user_id=3", nil,
-			app.sessionCookie(token), roleCookie("admin"))
+			app.signedSessionCookie(token), roleCookie("admin"))
 		assert.Contains(t, w.Body.String(), "Access denied")
 	})
 
-	t.Run("no session returns access denied", func(t *testing.T) {
+	t.Run("no signed_session cookie returns not authenticated", func(t *testing.T) {
 		w := doModuleRequest(t, app, "idor", http.MethodGet, "/?user_id=1", nil)
-		assert.Contains(t, w.Body.String(), "authenticated")
+		assert.Contains(t, w.Body.String(), "Not authenticated")
+	})
+
+	t.Run("old session_id cookie without signed_session is rejected", func(t *testing.T) {
+		token := app.mustLogin(gordonUsername, gordonPassword)
+		w := doModuleRequest(t, app, "idor", http.MethodGet, "/?user_id=2", nil,
+			app.sessionCookie(token))
+		assert.Contains(t, w.Body.String(), "Not authenticated")
+	})
+
+	t.Run("admin viewing another user only gets public profile without secrets", func(t *testing.T) {
+		token := app.mustLoginSigned(adminUsername, adminPassword)
+		w := doModuleRequest(t, app, "idor", http.MethodGet, "/?user_id=2", nil,
+			app.signedSessionCookie(token))
+		body := w.Body.String()
+		assert.Contains(t, body, "gordonb")
+		assert.NotContains(t, body, `"data"`)
 	})
 }

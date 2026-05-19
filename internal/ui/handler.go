@@ -162,6 +162,14 @@ func (h *Handler) loginSubmit(w http.ResponseWriter, r *http.Request) {
 		Path:     "/",
 		HttpOnly: true,
 	})
+
+	signedToken := h.sessions.CreateSigned(int(user.ID), user.Username, user.Role)
+	http.SetCookie(w, &http.Cookie{
+		Name:     "signed_session",
+		Value:    signedToken,
+		Path:     "/",
+		HttpOnly: true,
+	})
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
@@ -171,6 +179,12 @@ func (h *Handler) logoutPage(w http.ResponseWriter, r *http.Request) {
 	}
 	http.SetCookie(w, &http.Cookie{
 		Name:   "session_id",
+		Value:  "",
+		Path:   "/",
+		MaxAge: -1,
+	})
+	http.SetCookie(w, &http.Cookie{
+		Name:   "signed_session",
 		Value:  "",
 		Path:   "/",
 		MaxAge: -1,
