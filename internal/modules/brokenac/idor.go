@@ -62,6 +62,17 @@ func idorEasy(m *BrokenACModule, w http.ResponseWriter, userID int) {
 }
 
 func idorMedium(m *BrokenACModule, w http.ResponseWriter, r *http.Request, userID int) {
+	cookie, err := r.Cookie("session_id")
+	if err != nil {
+		fmt.Fprint(w, idorRenderForm(`<div class="error">Not authenticated.</div>`))
+		return
+	}
+	sess := m.sess.Get(cookie.Value)
+	if sess == nil {
+		fmt.Fprint(w, idorRenderForm(`<div class="error">Session expired.</div>`))
+		return
+	}
+
 	roleCookie, err := r.Cookie("role")
 	if err != nil || roleCookie.Value != "admin" {
 		fmt.Fprint(w, idorRenderForm(`<div class="error">Access denied.</div>`))
