@@ -3,11 +3,13 @@ package brokenac
 import (
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"strconv"
 
 	"DVGA/internal/core"
 	"DVGA/internal/database"
+	"DVGA/internal/util"
 )
 
 func idorMeta(d core.Difficulty) core.ModuleMeta {
@@ -73,11 +75,29 @@ func idorMedium(m *BrokenACModule, w http.ResponseWriter, r *http.Request, userI
 		return
 	}
 
-	roleCookie, err := r.Cookie("role")
-	if err != nil || roleCookie.Value != "admin" {
+	roleCookieIsAdmin := false
+	if roleCookie, cookieErr := r.Cookie("role"); cookieErr == nil {
+		var roleErr error
+		roleCookieIsAdmin, roleErr = util.IsAdminRole(roleCookie.Value)
+		if roleErr != nil {
+			slog.Error("failed to convert role cookie value", "err", roleErr, "value", roleCookie.Value)
+		}
+	}
+
+	if roleCookieIsAdmin {
+		idorWriteProfile(m, w, userID)
+		return
+	}
+
+	if sess.UserID != userID {
 		fmt.Fprint(w, idorRenderForm(`<div class="error">Access denied.</div>`))
 		return
 	}
+
+	idorWriteProfile(m, w, userID)
+}
+
+func idorWriteProfile(m *BrokenACModule, w http.ResponseWriter, userID int) {
 	var user database.User
 	if err := m.store.DB().First(&user, userID).Error; err != nil {
 		fmt.Fprint(w, idorRenderForm(`<div class="error">Profile not found.</div>`))

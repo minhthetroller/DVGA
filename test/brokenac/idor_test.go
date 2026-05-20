@@ -1,6 +1,8 @@
 package brokenactest
 
 import (
+	"bytes"
+	"log/slog"
 	"net/http"
 	"testing"
 
@@ -54,14 +56,39 @@ func TestIDOR_Medium(t *testing.T) {
 		assert.Contains(t, w.Body.String(), "Session expired")
 	})
 
-	t.Run("non-admin session without role cookie returns access denied", func(t *testing.T) {
+	t.Run("valid user session without role cookie can view own profile", func(t *testing.T) {
+		token := app.mustLogin(gordonUsername, gordonPassword)
+		w := doModuleRequest(t, app, "idor", http.MethodGet, "/?user_id=2", nil,
+			app.sessionCookie(token))
+		body := w.Body.String()
+		assert.Contains(t, body, "gordonb")
+		assert.Contains(t, body, "SSH Key")
+	})
+
+	t.Run("valid user session without role cookie cannot access another profile", func(t *testing.T) {
 		token := app.mustLogin(gordonUsername, gordonPassword)
 		w := doModuleRequest(t, app, "idor", http.MethodGet, "/?user_id=1", nil,
 			app.sessionCookie(token))
 		assert.Contains(t, w.Body.String(), "Access denied")
 	})
 
-	t.Run("valid non-admin session with forged role=admin cookie grants cross-user access", func(t *testing.T) {
+	t.Run("valid user session with role=user can view own profile", func(t *testing.T) {
+		token := app.mustLogin(gordonUsername, gordonPassword)
+		w := doModuleRequest(t, app, "idor", http.MethodGet, "/?user_id=2", nil,
+			app.sessionCookie(token), roleCookie("user"))
+		body := w.Body.String()
+		assert.Contains(t, body, "gordonb")
+		assert.Contains(t, body, "SSH Key")
+	})
+
+	t.Run("valid user session with role=user cannot access another profile", func(t *testing.T) {
+		token := app.mustLogin(gordonUsername, gordonPassword)
+		w := doModuleRequest(t, app, "idor", http.MethodGet, "/?user_id=1", nil,
+			app.sessionCookie(token), roleCookie("user"))
+		assert.Contains(t, w.Body.String(), "Access denied")
+	})
+
+	t.Run("valid user session with forged role=admin cookie grants another profile access", func(t *testing.T) {
 		token := app.mustLogin(gordonUsername, gordonPassword)
 		w := doModuleRequest(t, app, "idor", http.MethodGet, "/?user_id=1", nil,
 			app.sessionCookie(token), roleCookie("admin"))
@@ -76,11 +103,20 @@ func TestIDOR_Medium(t *testing.T) {
 		assert.Contains(t, w.Body.String(), "Not authenticated")
 	})
 
-	t.Run("valid session with non-admin role cookie returns access denied", func(t *testing.T) {
+	t.Run("malformed role cookie returns access denied and logs conversion error", func(t *testing.T) {
+		var logBuf bytes.Buffer
+		oldLogger := slog.Default()
+		slog.SetDefault(slog.New(slog.NewTextHandler(&logBuf, nil)))
+		t.Cleanup(func() {
+			slog.SetDefault(oldLogger)
+		})
+
 		token := app.mustLogin(gordonUsername, gordonPassword)
 		w := doModuleRequest(t, app, "idor", http.MethodGet, "/?user_id=1", nil,
-			app.sessionCookie(token), roleCookie("user"))
+			app.sessionCookie(token), roleCookie("superadmin"))
 		assert.Contains(t, w.Body.String(), "Access denied")
+		assert.Contains(t, logBuf.String(), "failed to convert role cookie value")
+		assert.Contains(t, logBuf.String(), "superadmin")
 	})
 }
 
