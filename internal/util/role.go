@@ -1,3 +1,4 @@
+// Package util provides shared helper functions used across DVGA.
 package util
 
 import "fmt"
