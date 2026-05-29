@@ -20,6 +20,7 @@ type PageData struct {
 	Sidebar    []SidebarCategory
 	Content    template.HTML
 	MoreInfo   []string
+	HintsJSON  string
 }
 
 // SidebarCategory groups module links by OWASP category.
