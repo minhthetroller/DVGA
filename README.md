@@ -169,7 +169,7 @@ Request
 | `cmd/dvga` | Entry point, startup, graceful shutdown |
 | `internal/app` | Application wiring: DB, session manager, registry, HTTP server |
 | `internal/core` | `VulnModule` interface, `Registry`, `ModuleConstructor`, `Chain`, `SafeDifficulty` |
-| `internal/ui` | HTTP handlers, templates, hint endpoint |
+| `internal/ui` | HTTP handlers and templates |
 | `internal/middleware` | Logger and difficulty decorator implementations |
 | `internal/modules/*` | One package per OWASP category, module factories + handlers |
 | `internal/database` | Models, migration, seed/reset workflows |
@@ -195,7 +195,6 @@ This design replaces a factory-heavy approach with a lighter registry + construc
 | `GET/POST` | `/setup` | Database reset utilities |
 | `GET` | `/about` | Project overview |
 | `GET/POST` | `/vulnerabilities/{id}` | Module page |
-| `GET` | `/vulnerabilities/{id}/hint?level=1..4` | Progressive hint retrieval |
 | `GET` | `/static/*` | Static assets |
 
 ### API Routes (API1–API5 scenarios)
