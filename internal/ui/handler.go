@@ -7,7 +7,6 @@ import (
 	"html/template"
 	"net/http"
 	"sort"
-	"strconv"
 	"sync"
 
 	"DVGA/internal/core"
@@ -82,7 +81,6 @@ func (h *Handler) Routes() chi.Router {
 
 		// Vulnerability module routes
 		r.HandleFunc("/vulnerabilities/{moduleID}", h.modulePage)
-		r.Get("/vulnerabilities/{moduleID}/hint", h.hintAPI)
 	})
 
 	// Mount API routes for APIModule instances
@@ -252,6 +250,13 @@ func (h *Handler) modulePage(w http.ResponseWriter, r *http.Request) {
 	data := h.baseData(mod.Meta().Name, moduleID, sess)
 	data.Content = template.HTML(buf.String())
 	data.MoreInfo = mod.Meta().References
+	hintsJSON, err := json.Marshal(mod.Meta().Hints)
+	if err != nil {
+		h.logger.Error().Err(err).Str("module", moduleID).Msg("hint serialization failed")
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+	data.HintsJSON = string(hintsJSON)
 
 	// Use API-specific template for API modules
 	templateName := "module"
@@ -329,33 +334,6 @@ func (h *Handler) buildSidebar() []SidebarCategory {
 	h.sidebarMu.Unlock()
 
 	return sidebar
-}
-
-func (h *Handler) hintAPI(w http.ResponseWriter, r *http.Request) {
-	moduleID := chi.URLParam(r, "moduleID")
-	levelStr := r.URL.Query().Get("level")
-
-	level, err := strconv.Atoi(levelStr)
-	if err != nil || level < 1 || level > 4 {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]string{"error": "level must be 1-4"})
-		return
-	}
-
-	mod, err := h.registry.Build(moduleID, h.difficulty.Get())
-	if err != nil {
-		http.NotFound(w, r)
-		return
-	}
-
-	hint := mod.Meta().Hints[level-1]
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"level": level,
-		"total": 4,
-		"hint":  hint,
-	})
 }
 
 func (h *Handler) renderPage(w http.ResponseWriter, name string, data PageData) {
