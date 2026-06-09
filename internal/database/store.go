@@ -38,7 +38,8 @@ func (s *Store) AutoMigrate() error {
 		&Document{},
 		&Invoice{},
 		&APIToken{},
+		&RememberToken{},
 		&Notification{},
+		&AuditEvent{},
 	)
 }
-

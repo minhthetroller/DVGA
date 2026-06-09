@@ -42,15 +42,15 @@ type ResetToken struct {
 
 // Order is the GORM model for customer orders (BOLA, BOPLA, BFLA).
 type Order struct {
-	ID             uint      `gorm:"primaryKey"`
-	UserID         uint      `gorm:"not null;index"`
-	Product        string    `gorm:"not null"`
-	Amount         float64   `gorm:"not null"`
-	Status         string    `gorm:"not null;default:pending"` // pending / shipped / cancelled / refunded
+	ID             uint    `gorm:"primaryKey"`
+	UserID         uint    `gorm:"not null;index"`
+	Product        string  `gorm:"not null"`
+	Amount         float64 `gorm:"not null"`
+	Status         string  `gorm:"not null;default:pending"` // pending / shipped / cancelled / refunded
 	TrackingNumber string
 	CardLast4      string
 	CVV            string
-	AssignedTo     uint      `gorm:"default:0"` // helpdesk user assigned to this order
+	AssignedTo     uint `gorm:"default:0"` // helpdesk user assigned to this order
 	CreatedAt      time.Time
 }
 
@@ -75,19 +75,40 @@ type Invoice struct {
 
 // APIToken is the GORM model for API tokens (Broken Auth).
 type APIToken struct {
-	ID        uint      `gorm:"primaryKey"`
-	UserID    uint      `gorm:"not null;index"`
-	Token     string    `gorm:"uniqueIndex;not null"`
+	ID        uint   `gorm:"primaryKey"`
+	UserID    uint   `gorm:"not null;index"`
+	Token     string `gorm:"uniqueIndex;not null"`
 	ExpiresAt time.Time
 	Revoked   bool `gorm:"default:false"`
 }
 
-// Notification is the GORM model for notifications (Unrestricted Resource).
-type Notification struct {
-	ID        uint      `gorm:"primaryKey"`
-	SenderID  uint      `gorm:"not null;index"`
-	Recipient string    `gorm:"not null"`
-	Body      string    `gorm:"not null"`
+// RememberToken is the GORM model for persistent login tokens.
+type RememberToken struct {
+	ID        uint   `gorm:"primaryKey"`
+	UserID    uint   `gorm:"not null;index"`
+	Token     string `gorm:"uniqueIndex;not null"`
+	ExpiresAt time.Time
+	Revoked   bool `gorm:"default:false"`
 	CreatedAt time.Time
 }
 
+// Notification is the GORM model for notifications (Unrestricted Resource).
+type Notification struct {
+	ID        uint   `gorm:"primaryKey"`
+	SenderID  uint   `gorm:"not null;index"`
+	Recipient string `gorm:"not null"`
+	Body      string `gorm:"not null"`
+	CreatedAt time.Time
+}
+
+// AuditEvent is the GORM model for security-relevant audit log entries.
+type AuditEvent struct {
+	ID        uint   `gorm:"primaryKey"`
+	Username  string `gorm:"index"`
+	EventType string `gorm:"not null;index"`
+	Outcome   string `gorm:"not null;index"`
+	IPAddress string
+	Severity  string `gorm:"not null;default:info"`
+	Message   string
+	CreatedAt time.Time
+}
