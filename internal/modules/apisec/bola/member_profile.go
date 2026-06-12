@@ -14,10 +14,10 @@ import (
 
 func memberProfileMeta(d core.Difficulty) core.ModuleMeta {
 	return core.ModuleMeta{
-		ID:       "member-profile",
-		Name:     "Member Profile",
-		Category: "Broken Object Level Authorization",
-		Kind:     core.KindAPI,
+		ID:         "member-profile",
+		Name:       "Member Profile",
+		Category:   "Broken Object Level Authorization",
+		Kind:       core.KindAPI,
 		Difficulty: d,
 		References: []string{
 			"https://owasp.org/API-Security/editions/2023/en/0xa1-broken-object-level-authorization/",
@@ -41,6 +41,30 @@ func serveMemberProfileInfo(m *BOLAModule, w http.ResponseWriter, r *http.Reques
 	}
 	fmt.Fprintf(w, memberProfileHTML, userID, userID)
 }
+
+const memberProfileHTML = `<div class="member-card" style="border:1px solid #ccc;border-radius:8px;padding:1.5rem;max-width:400px">
+<div style="display:flex;align-items:center;gap:1rem;margin-bottom:1rem">
+<div style="width:56px;height:56px;border-radius:50%%;background:#6c63ff;display:flex;align-items:center;justify-content:center;color:white;font-size:1.5rem">&#128100;</div>
+<div id="profile-header"><p style="color:#888">Loading…</p></div>
+</div>
+<table id="profile-table" style="width:100%%"></table>
+</div>
+<script>
+(function(){
+  fetch('/api/v1/members/%d')
+    .then(function(r){return r.json();})
+    .then(function(d){
+      document.getElementById('profile-header').innerHTML =
+        '<h4 style="margin:0">'+d.username+'</h4><small style="color:#888">'+d.role+'</small>';
+      var rows='';
+      if(d.email) rows+='<tr><td><b>Email</b></td><td>'+d.email+'</td></tr>';
+      if(d.phone) rows+='<tr><td><b>Phone</b></td><td>'+d.phone+'</td></tr>';
+      document.getElementById('profile-table').innerHTML=rows;
+    })
+    .catch(function(){document.getElementById('profile-header').innerHTML='<p style="color:red">Failed to load</p>';});
+  window._memberId = %d;
+})();
+</script>`
 
 func serveMemberProfileAPI(m *BOLAModule, w http.ResponseWriter, r *http.Request) {
 	idStr := chi.URLParam(r, "id")
@@ -108,27 +132,3 @@ func memberJSON(u database.User) map[string]any {
 		"phone":    u.Phone,
 	}
 }
-
-const memberProfileHTML = `<div class="member-card" style="border:1px solid #ccc;border-radius:8px;padding:1.5rem;max-width:400px">
-<div style="display:flex;align-items:center;gap:1rem;margin-bottom:1rem">
-<div style="width:56px;height:56px;border-radius:50%%;background:#6c63ff;display:flex;align-items:center;justify-content:center;color:white;font-size:1.5rem">&#128100;</div>
-<div id="profile-header"><p style="color:#888">Loading…</p></div>
-</div>
-<table id="profile-table" style="width:100%%"></table>
-</div>
-<script>
-(function(){
-  fetch('/api/v1/members/%d')
-    .then(function(r){return r.json();})
-    .then(function(d){
-      document.getElementById('profile-header').innerHTML =
-        '<h4 style="margin:0">'+d.username+'</h4><small style="color:#888">'+d.role+'</small>';
-      var rows='';
-      if(d.email) rows+='<tr><td><b>Email</b></td><td>'+d.email+'</td></tr>';
-      if(d.phone) rows+='<tr><td><b>Phone</b></td><td>'+d.phone+'</td></tr>';
-      document.getElementById('profile-table').innerHTML=rows;
-    })
-    .catch(function(){document.getElementById('profile-header').innerHTML='<p style="color:red">Failed to load</p>';});
-  window._memberId = %d;
-})();
-</script>`

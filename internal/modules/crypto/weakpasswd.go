@@ -46,6 +46,20 @@ func serveWeakPasswd(m *CryptoModule, w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func wpHandleVerify(m *CryptoModule, w http.ResponseWriter, r *http.Request) {
+	guess := r.FormValue("guess")
+	username := r.FormValue("username")
+	var user database.User
+	if err := m.store.DB().Where("username = ?", username).First(&user).Error; err != nil {
+		fmt.Fprint(w, wpRenderForm(`<div class="error">User not found.</div>`))
+		return
+	}
+	hash, _ := bcrypt.GenerateFromPassword([]byte(user.Password), 12)
+	verified := bcrypt.CompareHashAndPassword(hash, []byte(guess)) == nil
+	resp, _ := json.Marshal(map[string]any{"verified": verified, "username": username})
+	fmt.Fprint(w, wpRenderForm(`<pre class="output">`+string(resp)+`</pre>`))
+}
+
 func wpEasy(m *CryptoModule, w http.ResponseWriter) {
 	var users []database.User
 	m.store.DB().Find(&users)
@@ -107,20 +121,6 @@ func wpHard(m *CryptoModule, w http.ResponseWriter) {
 	fmt.Fprint(w, wpRenderForm(output))
 }
 
-func wpHandleVerify(m *CryptoModule, w http.ResponseWriter, r *http.Request) {
-	guess := r.FormValue("guess")
-	username := r.FormValue("username")
-	var user database.User
-	if err := m.store.DB().Where("username = ?", username).First(&user).Error; err != nil {
-		fmt.Fprint(w, wpRenderForm(`<div class="error">User not found.</div>`))
-		return
-	}
-	hash, _ := bcrypt.GenerateFromPassword([]byte(user.Password), 12)
-	verified := bcrypt.CompareHashAndPassword(hash, []byte(guess)) == nil
-	resp, _ := json.Marshal(map[string]any{"verified": verified, "username": username})
-	fmt.Fprint(w, wpRenderForm(`<pre class="output">`+string(resp)+`</pre>`))
-}
-
 func wpRenderForm(output string) string {
 	html := `<div class="vuln-form">
 <h3>Admin Console</h3>
@@ -131,5 +131,3 @@ func wpRenderForm(output string) string {
 	}
 	return html
 }
-
-
