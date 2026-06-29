@@ -1,0 +1,191 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+
+env:
+  AWS_REGION: ap-southeast-1
+  TF_WORKING_DIR: infrastructure/terraform
+
+jobs:
+  provision:
+    name: Terraform Apply
+    runs-on: ubuntu-latest
+    environment: production
+    outputs:
+      ec2_elastic_ip: ${{ steps.tf-outputs.outputs.ec2_elastic_ip }}
+      ecr_app_repository_url: ${{ steps.tf-outputs.outputs.ecr_app_repository_url }}
+      ecr_provisioner_repository_url: ${{ steps.tf-outputs.outputs.ecr_provisioner_repository_url }}
+      ecs_cluster_name: ${{ steps.tf-outputs.outputs.ecs_cluster_name }}
+      ecs_task_definition_arn: ${{ steps.tf-outputs.outputs.ecs_task_definition_arn }}
+      subnet_ids: ${{ steps.tf-outputs.outputs.subnet_ids }}
+      ecs_security_group_id: ${{ steps.tf-outputs.outputs.ecs_security_group_id }}
+      ssh_private_key: ${{ steps.tf-outputs.outputs.ssh_private_key }}
+      domain: ${{ steps.tf-outputs.outputs.domain }}
+      inactivity_timeout_min: ${{ steps.tf-outputs.outputs.inactivity_timeout_min }}
+      max_users: ${{ steps.tf-outputs.outputs.max_users }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Bootstrap S3 State Bucket
+        run: |
+          BUCKET="dvga-terraform-state"
+          if ! aws s3api head-bucket --bucket "$BUCKET" 2>/dev/null; then
+            aws s3api create-bucket \
+              --bucket "$BUCKET" \
+              --region ${{ env.AWS_REGION }} \
+              --create-bucket-configuration LocationConstraint=${{ env.AWS_REGION }}
+            aws s3api put-bucket-versioning \
+              --bucket "$BUCKET" \
+              --versioning-configuration Status=Enabled
+            echo "Created S3 bucket: $BUCKET"
+          else
+            echo "S3 bucket already exists: $BUCKET"
+          fi
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~1.9"
+
+      - name: Terraform Init
+        run: terraform init
+        working-directory: ${{ env.TF_WORKING_DIR }}
+
+      - name: Terraform Apply
+        run: terraform apply -auto-approve
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        env:
+          TF_VAR_ec2_key_name: ${{ secrets.TF_VAR_ec2_key_name }}
+
+      - name: Export Terraform Outputs
+        id: tf-outputs
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: |
+          echo "ec2_elastic_ip=$(terraform output -raw ec2_elastic_ip)" >> "$GITHUB_OUTPUT"
+          echo "ecr_app_repository_url=$(terraform output -raw ecr_app_repository_url)" >> "$GITHUB_OUTPUT"
+          echo "ecr_provisioner_repository_url=$(terraform output -raw ecr_provisioner_repository_url)" >> "$GITHUB_OUTPUT"
+          echo "ecs_cluster_name=$(terraform output -raw ecs_cluster_name)" >> "$GITHUB_OUTPUT"
+          echo "ecs_task_definition_arn=$(terraform output -raw ecs_task_definition_arn)" >> "$GITHUB_OUTPUT"
+          echo "subnet_ids=$(terraform output -raw subnet_ids)" >> "$GITHUB_OUTPUT"
+          echo "ecs_security_group_id=$(terraform output -raw ecs_security_group_id)" >> "$GITHUB_OUTPUT"
+          echo "domain=$(terraform output -raw domain)" >> "$GITHUB_OUTPUT"
+          echo "inactivity_timeout_min=$(terraform output -raw inactivity_timeout_min)" >> "$GITHUB_OUTPUT"
+          echo "max_users=$(terraform output -raw max_users)" >> "$GITHUB_OUTPUT"
+          {
+            echo 'ssh_private_key<<EOF'
+            terraform output -raw ssh_private_key
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
+
+  push-images:
+    name: Build & Push to ECR
+    needs: provision
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to ECR
+        id: ecr-login
+        run: |
+          REGISTRY="${{ needs.provision.outputs.ecr_app_repository_url }}"
+          REGISTRY="${REGISTRY%%/*}"
+          aws ecr get-login-password --region ${{ env.AWS_REGION }} | docker login --username AWS --password-stdin "$REGISTRY"
+          echo "registry=$REGISTRY" >> "$GITHUB_OUTPUT"
+
+      - name: Build & Push DVGA App
+        run: |
+          ECR_URL="${{ needs.provision.outputs.ecr_app_repository_url }}"
+          docker build -t dvga-app .
+          docker tag dvga-app "$ECR_URL:latest"
+          docker push "$ECR_URL:latest"
+
+      - name: Build & Push Provisioner
+        run: |
+          ECR_URL="${{ needs.provision.outputs.ecr_provisioner_repository_url }}"
+          docker build -t dvga-provisioner ./provisioner
+          docker tag dvga-provisioner "$ECR_URL:latest"
+          docker push "$ECR_URL:latest"
+
+  deploy:
+    name: Ansible Deploy
+    needs: [provision, push-images]
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Ansible
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ansible
+
+      - name: Write SSH Key
+        run: |
+          echo "${{ needs.provision.outputs.ssh_private_key }}" > infrastructure/ansible/ssh_key
+          chmod 600 infrastructure/ansible/ssh_key
+
+      - name: Wait for SSH
+        run: |
+          EC2_IP="${{ needs.provision.outputs.ec2_elastic_ip }}"
+          for i in $(seq 1 30); do
+            if ssh -i infrastructure/ansible/ssh_key -o StrictHostKeyChecking=no -o ConnectTimeout=5 "ubuntu@$EC2_IP" "echo ready" 2>/dev/null; then
+              echo "SSH is ready"
+              exit 0
+            fi
+            echo "Attempt $i/30 - retrying in 10s..."
+            sleep 10
+          done
+          echo "SSH not ready after 30 attempts"
+          exit 1
+
+      - name: Run Ansible Playbook
+        working-directory: infrastructure/ansible
+        run: |
+          ansible-playbook -i inventory.yml playbook.yml \
+            -e "ec2_ip=${{ needs.provision.outputs.ec2_elastic_ip }}" \
+            -e "aws_region=${{ env.AWS_REGION }}" \
+            -e "domain=${{ needs.provision.outputs.domain }}" \
+            -e "ecr_app_url=${{ needs.provision.outputs.ecr_app_repository_url }}" \
+            -e "ecr_provisioner_url=${{ needs.provision.outputs.ecr_provisioner_repository_url }}" \
+            -e "ecr_registry_url=${{ needs.provision.outputs.ecr_app_repository_url }}" \
+            -e "ecs_cluster_name=${{ needs.provision.outputs.ecs_cluster_name }}" \
+            -e "task_definition_arn=${{ needs.provision.outputs.ecs_task_definition_arn }}" \
+            -e "subnet_ids=${{ needs.provision.outputs.subnet_ids }}" \
+            -e "ecs_security_group_id=${{ needs.provision.outputs.ecs_security_group_id }}" \
+            -e "inactivity_timeout_min=${{ needs.provision.outputs.inactivity_timeout_min }}" \
+            -e "max_users=${{ needs.provision.outputs.max_users }}"
+
+      - name: Verify Deployment
+        run: |
+          DOMAIN="${{ needs.provision.outputs.domain }}"
+          echo "Checking https://$DOMAIN ..."
+          for i in $(seq 1 12); do
+            if curl -sf "https://$DOMAIN" > /dev/null 2>&1; then
+              echo "Deployment verified: https://$DOMAIN is live"
+              exit 0
+            fi
+            echo "Attempt $i/12 - retrying in 10s..."
+            sleep 10
+          done
+          echo "Deployment verification failed"
+          exit 1

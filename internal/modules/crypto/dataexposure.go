@@ -94,6 +94,10 @@ func deHandleAdd(m *CryptoModule, w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func deHard(m *CryptoModule, w http.ResponseWriter) {
+	fmt.Fprint(w, deRenderForm(m.difficulty, "", deHardBody(m)))
+}
+
 func deHandleDecrypt(m *CryptoModule, w http.ResponseWriter, r *http.Request) {
 	secretValue := r.FormValue("secret_value")
 	password := r.FormValue("password")
@@ -141,9 +145,7 @@ func deHardBody(m *CryptoModule) string {
 	return output
 }
 
-func deHard(m *CryptoModule, w http.ResponseWriter) {
-	fmt.Fprint(w, deRenderForm(m.difficulty, "", deHardBody(m)))
-}
+
 
 func deNotesJSON(secrets []database.Secret, transform func(string) string) string {
 	type note struct {

@@ -1,0 +1,20 @@
+---
+- hosts: dvga-ec2
+  gather_facts: yes
+  vars:
+    aws_region: "{{ aws_region }}"
+    domain: "{{ domain }}"
+    ecr_provisioner_url: "{{ ecr_provisioner_url }}"
+    ecr_app_url: "{{ ecr_app_url }}"
+    ecs_cluster_name: "{{ ecs_cluster_name }}"
+    task_definition_arn: "{{ task_definition_arn }}"
+    subnet_ids: "{{ subnet_ids }}"
+    ecs_security_group_id: "{{ ecs_security_group_id }}"
+    inactivity_timeout_min: "{{ inactivity_timeout_min }}"
+    max_users: "{{ max_users }}"
+    ecr_registry_url: "{{ ecr_provisioner_url.split('/')[0] }}"
+
+  roles:
+    - docker
+    - ecr-login
+    - deploy

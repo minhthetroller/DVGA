@@ -163,19 +163,30 @@ func serveOrderDetailsAPI(m *BOPLAModule, w http.ResponseWriter, r *http.Request
 	switch m.difficulty {
 	case core.Easy:
 		json.NewEncoder(w).Encode(map[string]any{
-			"id": order.ID, "user_id": order.UserID, "product": order.Product,
-			"amount": order.Amount, "status": order.Status,
-			"tracking_number": order.TrackingNumber, "card_last4": order.CardLast4, "cvv": order.CVV,
+			"id": order.ID, 
+			"user_id": order.UserID, 
+			"product": order.Product,
+			"amount": order.Amount, 
+			"status": order.Status,
+			"tracking_number": order.TrackingNumber, 
+			"card_last4": order.CardLast4, 
+			"cvv": order.CVV,
 		})
 	case core.Medium:
 		json.NewEncoder(w).Encode(map[string]any{
-			"id": order.ID, "user_id": order.UserID, "product": order.Product,
-			"amount": order.Amount, "status": order.Status,
-			"tracking_number": order.TrackingNumber, "card_last4": order.CardLast4,
+			"id": order.ID, 
+			"user_id": order.UserID, 
+			"product": order.Product,
+			"amount": order.Amount, 
+			"status": order.Status,
+			"tracking_number": order.TrackingNumber, 
+			"card_last4": order.CardLast4,
 		})
 	case core.Hard:
 		json.NewEncoder(w).Encode(map[string]any{
-			"id": order.ID, "amount": order.Amount, "tracking_number": order.TrackingNumber,
+			"id": order.ID, 
+			"amount": order.Amount, 
+			"tracking_number": order.TrackingNumber,
 		})
 	}
 }
@@ -254,7 +265,9 @@ func serveInvoiceAdjusterAPI(m *BOPLAModule, w http.ResponseWriter, r *http.Requ
 
 	m.store.DB().Save(&invoice)
 	json.NewEncoder(w).Encode(map[string]any{
-		"id": invoice.ID, "amount": invoice.Amount,
-		"status": invoice.Status, "notes": invoice.Notes,
+		"id": invoice.ID, 
+		"amount": invoice.Amount,
+		"status": invoice.Status, 
+		"notes": invoice.Notes,
 	})
 }

@@ -1,0 +1,45 @@
+version: "3.8"
+
+services:
+  traefik:
+    image: traefik:v3.4
+    command:
+      - "--providers.ecs=true"
+      - "--providers.ecs.region={{ aws_region }}"
+      - "--providers.ecs.clusters={{ ecs_cluster_name }}"
+      - "--providers.ecs.exposedByDefault=false"
+      - "--providers.ecs.ecsanywhere=false"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--certificatesresolvers.le.acme.dnschallenge=true"
+      - "--certificatesresolvers.le.acme.dnschallenge.provider=route53"
+      - "--certificatesresolvers.le.acme.email=admin@{{ domain }}"
+      - "--certificatesresolvers.le.acme.storage=/acme.json"
+      - "--entrypoints.web.http.redirections.entryPoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entryPoint.scheme=https"
+      - "--api.dashboard=true"
+      - "--log.level=INFO"
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      - AWS_REGION={{ aws_region }}
+    volumes:
+      - ./acme.json:/acme.json
+    restart: unless-stopped
+
+  provisioner:
+    image: {{ ecr_provisioner_url }}:latest
+    ports:
+      - "8080:8080"
+    environment:
+      - AWS_REGION={{ aws_region }}
+      - ECS_CLUSTER={{ ecs_cluster_name }}
+      - ECR_IMAGE={{ ecr_app_url }}:latest
+      - DOMAIN={{ domain }}
+      - INACTIVITY_TIMEOUT_MIN={{ inactivity_timeout_min }}
+      - MAX_USERS={{ max_users }}
+      - TASK_DEFINITION_ARN={{ task_definition_arn }}
+      - SUBNET_IDS={{ subnet_ids }}
+      - SECURITY_GROUP_ID={{ ecs_security_group_id }}
+    restart: unless-stopped
