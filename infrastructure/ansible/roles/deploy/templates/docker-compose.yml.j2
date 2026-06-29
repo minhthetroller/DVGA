@@ -9,6 +9,8 @@ services:
       - "--providers.ecs.clusters={{ ecs_cluster_name }}"
       - "--providers.ecs.exposedByDefault=false"
       - "--providers.ecs.ecsanywhere=false"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedByDefault=false"
       - "--entrypoints.web.address=:80"
       - "--entrypoints.websecure.address=:443"
       - "--certificatesresolvers.le.acme.dnschallenge=true"
@@ -25,6 +27,7 @@ services:
     environment:
       - AWS_REGION={{ aws_region }}
     volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./acme.json:/acme.json
     restart: unless-stopped
 
@@ -42,4 +45,10 @@ services:
       - TASK_DEFINITION_ARN={{ task_definition_arn }}
       - SUBNET_IDS={{ subnet_ids }}
       - SECURITY_GROUP_ID={{ ecs_security_group_id }}
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.provisioner.rule=Host(`{{ domain }}`)"
+      - "traefik.http.routers.provisioner.entrypoints=websecure"
+      - "traefik.http.routers.provisioner.tls.certresolver=le"
+      - "traefik.http.services.provisioner.loadbalancer.server.port=8080"
     restart: unless-stopped
