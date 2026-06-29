@@ -114,34 +114,19 @@ func deHard(m *CryptoModule, w http.ResponseWriter) {
 	fmt.Fprint(w, deRenderForm(m.difficulty, "", deHardBody(m)))
 }
 
-func deHandleDecrypt(m *CryptoModule, w http.ResponseWriter, r *http.Request) {
-	secretValue := r.FormValue("secret_value")
-	password := r.FormValue("password")
-
-	decrypted, err := decryptAES(secretValue, password)
-	if err != nil {
-		fmt.Fprint(w, deRenderForm(m.difficulty, "Decryption failed.", deHardBody(m)))
-		return
-	}
-
-	resp, _ := json.Marshal(map[string]string{"decrypted": decrypted})
-	output := deHardBody(m) + `<pre class="output">` + string(resp) + `</pre>`
-
-	fmt.Fprint(w, deRenderForm(m.difficulty, "", output))
+func deRenderNotes(m *CryptoModule) string {
+	var secrets []database.Secret
+	m.store.DB().Find(&secrets)
+	notes := deNotesJSON(secrets, func(v string) string { return v })
+	return `<pre class="output">` + notes + `</pre>`
 }
 
-// deRenderNotes loads all secrets and renders them as stored (no transform).
-// Easy: stored as plaintext. Medium: stored as base64. Hard: stored as AES ciphertext.
 func deEasy(m *CryptoModule, w http.ResponseWriter) {
 	fmt.Fprint(w, deRenderForm(m.difficulty, "", deRenderNotes(m)))
 }
 
 func deMedium(m *CryptoModule, w http.ResponseWriter) {
 	fmt.Fprint(w, deRenderForm(m.difficulty, "", deRenderNotes(m)))
-}
-
-func deHard(m *CryptoModule, w http.ResponseWriter) {
-	fmt.Fprint(w, deRenderForm(m.difficulty, "", deHardBody(m)))
 }
 
 func deHardBody(m *CryptoModule) string {
