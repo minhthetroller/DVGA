@@ -3,6 +3,7 @@ version: "3.8"
 services:
   traefik:
     image: traefik:v3.6
+    network_mode: host
     command:
       - "--providers.ecs=true"
       - "--providers.ecs.region={{ aws_region }}"
@@ -21,9 +22,6 @@ services:
       - "--entrypoints.web.http.redirections.entryPoint.scheme=https"
       - "--api.dashboard=true"
       - "--log.level=INFO"
-    ports:
-      - "80:80"
-      - "443:443"
     environment:
       - AWS_REGION={{ aws_region }}
       - DOCKER_API_VERSION=1.40
