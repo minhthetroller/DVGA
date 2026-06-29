@@ -21,8 +21,6 @@ services:
       - "--certificatesresolvers.le.acme.dnschallenge.provider=route53"
       - "--certificatesresolvers.le.acme.email=admin@{{ domain }}"
       - "--certificatesresolvers.le.acme.storage=/acme.json"
-      - "--certificatesresolvers.le.acme.domains[0].main=*.{{ domain }}"
-      - "--certificatesresolvers.le.acme.domains[1].main={{ domain }}"
       - "--entrypoints.web.http.redirections.entryPoint.to=websecure"
       - "--entrypoints.web.http.redirections.entryPoint.scheme=https"
       - "--entrypoints.websecure.http.tls=true"
@@ -56,5 +54,7 @@ services:
       - "traefik.http.routers.provisioner.rule=Host(`{{ domain }}`)"
       - "traefik.http.routers.provisioner.entrypoints=websecure"
       - "traefik.http.routers.provisioner.tls.certresolver=le"
+      - "traefik.http.routers.provisioner.tls.domains[0].main=*.{{ domain }}"
+      - "traefik.http.routers.provisioner.tls.domains[0].sans={{ domain }}"
       - "traefik.http.services.provisioner.loadbalancer.server.port=8080"
     restart: unless-stopped
