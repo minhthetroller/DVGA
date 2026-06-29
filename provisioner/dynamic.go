@@ -52,14 +52,17 @@ func (d *DynamicConfig) flushLocked() {
 
 	dom := domain()
 	var b []byte
-	b = append(b, "http:\n"...)
 	if len(d.routers) == 0 {
-		b = append(b, "  routers: {}\n  services: {}\n"...)
+		// Empty file is the cleanest valid dynamic config for Traefik's
+		// file provider (any "routers:" null map yields "routers cannot
+		// be a standalone element"). Traefik treats a missing top-level
+		// section as no routers/services.
 		if err := os.WriteFile(d.path, b, 0o644); err != nil {
 			fmt.Printf("dynamic: write %s: %v\n", d.path, err)
 		}
 		return
 	}
+	b = append(b, "http:\n"...)
 	b = append(b, "  routers:\n"...)
 	for user := range d.routers {
 		b = append(b, fmt.Sprintf(

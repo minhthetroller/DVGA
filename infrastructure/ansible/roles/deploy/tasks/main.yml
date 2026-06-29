@@ -29,7 +29,8 @@
 - name: Create empty dynamic.yml for Traefik file provider
   copy:
     dest: /opt/dvga/dynamic.yml
-    content: "http:\n  routers: {}\n  services: {}\n"
+    content: ""
+    force: yes
     owner: ubuntu
     group: ubuntu
     mode: '0644'
