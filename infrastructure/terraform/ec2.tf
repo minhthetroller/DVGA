@@ -48,6 +48,11 @@ resource "aws_instance" "main" {
   iam_instance_profile        = aws_iam_instance_profile.ec2_instance.name
   associate_public_ip_address = true
 
+  metadata_options {
+    http_endpoint               = "enabled"
+    http_put_response_hop_limit = 2
+  }
+
   root_block_device {
     volume_size = 20
     volume_type = "gp3"

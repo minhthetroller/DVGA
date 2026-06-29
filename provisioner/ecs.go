@@ -32,10 +32,6 @@ func NewECSClient(cfg *Config) (*ECSClient, error) {
 func (e *ECSClient) RunTask(username string) (string, error) {
 	tags := []ecstypes.Tag{
 		{Key: aws.String("traefik.enable"), Value: aws.String("true")},
-		{Key: aws.String(fmt.Sprintf("traefik.http.routers.%s.rule", username)), Value: aws.String(fmt.Sprintf("Host(`%s.%s`)", username, e.cfg.Domain))},
-		{Key: aws.String(fmt.Sprintf("traefik.http.routers.%s.entrypoints", username)), Value: aws.String("websecure")},
-		{Key: aws.String(fmt.Sprintf("traefik.http.routers.%s.tls.certresolver", username)), Value: aws.String("le")},
-		{Key: aws.String(fmt.Sprintf("traefik.http.services.%s.loadbalancer.server.port", username)), Value: aws.String("4280")},
 		{Key: aws.String("username"), Value: aws.String(username)},
 	}
 

@@ -41,7 +41,17 @@ resource "aws_iam_role_policy" "ec2_instance" {
           "ecs:ListTasks",
           "ecs:DescribeTasks",
           "ecs:DescribeClusters",
+          "ecs:ListClusters",
+          "ecs:DescribeTaskDefinition",
+          "ecs:DescribeContainerInstances",
           "ecs:ListTagsForResource"
+        ]
+        Resource = "*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "ec2:DescribeInstances"
         ]
         Resource = "*"
       },
@@ -59,6 +69,20 @@ resource "aws_iam_role_policy" "ec2_instance" {
           "ecr:BatchCheckLayerAvailability"
         ]
         Resource = "*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "route53:ListHostedZonesByName"
+        ]
+        Resource = "*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "route53:ListResourceRecordSets"
+        ]
+        Resource = "arn:aws:route53:::hostedzone/${data.aws_route53_zone.main.zone_id}"
       },
       {
         Effect = "Allow"

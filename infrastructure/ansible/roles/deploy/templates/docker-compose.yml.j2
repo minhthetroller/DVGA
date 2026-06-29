@@ -3,7 +3,9 @@ version: "3.8"
 services:
   traefik:
     image: traefik:v3.6
-    network_mode: host
+    ports:
+      - "80:80"
+      - "443:443"
     command:
       - "--providers.ecs=true"
       - "--providers.ecs.region={{ aws_region }}"
@@ -12,14 +14,19 @@ services:
       - "--providers.ecs.ecsanywhere=false"
       - "--providers.docker=true"
       - "--providers.docker.exposedByDefault=false"
+      - "--providers.ecs.defaultRule=Host(`{% raw %}{{ index .Labels \"username\" }}{% endraw %}.{{ domain }}`)"
       - "--entrypoints.web.address=:80"
       - "--entrypoints.websecure.address=:443"
       - "--certificatesresolvers.le.acme.dnschallenge=true"
       - "--certificatesresolvers.le.acme.dnschallenge.provider=route53"
       - "--certificatesresolvers.le.acme.email=admin@{{ domain }}"
       - "--certificatesresolvers.le.acme.storage=/acme.json"
+      - "--certificatesresolvers.le.acme.domains[0].main=*.{{ domain }}"
+      - "--certificatesresolvers.le.acme.domains[1].main={{ domain }}"
       - "--entrypoints.web.http.redirections.entryPoint.to=websecure"
       - "--entrypoints.web.http.redirections.entryPoint.scheme=https"
+      - "--entrypoints.websecure.http.tls=true"
+      - "--entrypoints.websecure.http.tls.certresolver=le"
       - "--api.dashboard=true"
       - "--log.level=INFO"
     environment:
