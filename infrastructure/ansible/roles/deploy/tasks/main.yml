@@ -1,0 +1,46 @@
+---
+- name: Create /opt/dvga directory
+  file:
+    path: /opt/dvga
+    state: directory
+    owner: ubuntu
+    group: ubuntu
+    mode: '0755'
+  become: true
+
+- name: Template docker-compose.yml
+  template:
+    src: docker-compose.yml.j2
+    dest: /opt/dvga/docker-compose.yml
+    owner: ubuntu
+    group: ubuntu
+    mode: '0644'
+  become: true
+
+- name: Create empty acme.json with correct permissions
+  file:
+    path: /opt/dvga/acme.json
+    state: touch
+    owner: ubuntu
+    group: ubuntu
+    mode: '0600'
+  become: true
+
+- name: Pull docker images
+  shell: docker compose pull
+  args:
+    chdir: /opt/dvga
+  become: true
+
+- name: Start docker compose services
+  shell: docker compose up -d
+  args:
+    chdir: /opt/dvga
+  become: true
+
+- name: Wait for traefik to be healthy
+  wait_for:
+    port: 80
+    host: 0.0.0.0
+    timeout: 60
+    state: started

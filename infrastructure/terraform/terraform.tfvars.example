@@ -1,0 +1,23 @@
+# AWS region for all resources
+aws_region = "ap-southeast-1"
+
+# Domain name for Route53 DNS records (must already have a hosted zone)
+domain = "dvga.online"
+
+# EC2 instance type for the management server
+ec2_instance_type = "t3.small"
+
+# Fargate task CPU units (256 = 0.25 vCPU, 512 = 0.5 vCPU, 1024 = 1 vCPU)
+fargate_cpu = 256
+
+# Fargate task memory in MB
+fargate_memory = 512
+
+# Minutes of inactivity before stopping Fargate tasks
+inactivity_timeout_min = 15
+
+# Maximum number of concurrent DVGA users
+max_users = 5
+
+# Name for the EC2 key pair (used for SSH access)
+ec2_key_name = "dvga-key"

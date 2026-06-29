@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DVGA - Get Your Instance</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0d1117;
+            color: #c9d1d9;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        .card {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 12px;
+            padding: 40px;
+            width: 100%;
+            max-width: 420px;
+        }
+        h1 {
+            font-size: 1.5rem;
+            margin-bottom: 8px;
+            color: #f0f6fc;
+        }
+        p.subtitle {
+            font-size: 0.875rem;
+            color: #8b949e;
+            margin-bottom: 24px;
+        }
+        .input-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+        input[type="text"] {
+            flex: 1;
+            padding: 10px 14px;
+            background: #0d1117;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            color: #c9d1d9;
+            font-size: 1rem;
+            outline: none;
+        }
+        input[type="text"]:focus {
+            border-color: #58a6ff;
+        }
+        .domain-suffix {
+            font-size: 0.875rem;
+            color: #8b949e;
+            white-space: nowrap;
+        }
+        button {
+            width: 100%;
+            padding: 10px;
+            background: #238636;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            font-size: 1rem;
+            cursor: pointer;
+            font-weight: 600;
+        }
+        button:hover { background: #2ea043; }
+        .error {
+            background: #3d1117;
+            border: 1px solid #f85149;
+            color: #f85149;
+            padding: 10px 14px;
+            border-radius: 6px;
+            font-size: 0.875rem;
+            margin-bottom: 16px;
+        }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>DVGA</h1>
+        <p class="subtitle">Get your own Deliberately Vulnerable Go Application instance</p>
+        {{if .Error}}
+        <div class="error">{{.Error}}</div>
+        {{end}}
+        <form method="POST" action="/signup">
+            <div class="input-group">
+                <input type="text" name="username" placeholder="username" required autofocus>
+                <span class="domain-suffix">.{{.Domain}}</span>
+            </div>
+            <button type="submit">Launch Instance</button>
+        </form>
+    </div>
+</body>
+</html>

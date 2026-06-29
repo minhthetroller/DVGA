@@ -1,5 +1,6 @@
 # Compiled binary
 dvga
+provisioner/provisioner
 
 # SQLite database files
 data/*.db
@@ -12,3 +13,16 @@ diagram.txt
 
 # IDE folder
 .idea
+
+# Documentation plans
+docs/superpowers/plans
+
+# Terraform
+infrastructure/terraform/.terraform/
+infrastructure/terraform/.terraform.lock.hcl
+infrastructure/terraform/terraform.tfvars
+infrastructure/terraform/*.tfstate
+infrastructure/terraform/*.tfstate.backup
+
+# Ansible
+infrastructure/ansible/ssh_key

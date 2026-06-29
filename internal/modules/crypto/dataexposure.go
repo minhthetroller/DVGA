@@ -110,17 +110,23 @@ func deHandleAdd(m *CryptoModule, w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// Easy: stored as plaintext. Medium: stored as base64. Hard: stored as AES ciphertext.
+func deHard(m *CryptoModule, w http.ResponseWriter) {
+	fmt.Fprint(w, deRenderForm(m.difficulty, "", deHardBody(m)))
+}
+
+func deRenderNotes(m *CryptoModule) string {
+	var secrets []database.Secret
+	m.store.DB().Find(&secrets)
+	notes := deNotesJSON(secrets, func(v string) string { return v })
+	return `<pre class="output">` + notes + `</pre>`
+}
+
 func deEasy(m *CryptoModule, w http.ResponseWriter) {
 	fmt.Fprint(w, deRenderForm(m.difficulty, "", deRenderNotes(m)))
 }
 
 func deMedium(m *CryptoModule, w http.ResponseWriter) {
 	fmt.Fprint(w, deRenderForm(m.difficulty, "", deRenderNotes(m)))
-}
-
-func deHard(m *CryptoModule, w http.ResponseWriter) {
-	fmt.Fprint(w, deRenderForm(m.difficulty, "", deHardBody(m)))
 }
 
 func deHardBody(m *CryptoModule) string {
@@ -137,13 +143,7 @@ func deHardBody(m *CryptoModule) string {
 	return output
 }
 
-// deRenderNotes loads all secrets and renders them as stored (no transform).
-func deRenderNotes(m *CryptoModule) string {
-	var secrets []database.Secret
-	m.store.DB().Find(&secrets)
-	notes := deNotesJSON(secrets, func(v string) string { return v })
-	return `<pre class="output">` + notes + `</pre>`
-}
+
 
 func deNotesJSON(secrets []database.Secret, transform func(string) string) string {
 	type note struct {
