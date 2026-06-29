@@ -128,26 +128,6 @@ func sqliMedium(m *InjectionModule, w http.ResponseWriter, input string) {
 	fmt.Fprint(w, sqliRenderForm(sqliFormatMediumRows(rows)))
 }
 
-func sqliHard(m *InjectionModule, w http.ResponseWriter, input string) {
-	var users []database.User
-	m.store.DB().Where("id = ?", input).Find(&users)
-	if len(users) == 0 {
-		fmt.Fprint(w, sqliRenderForm(`<div class="error">No results found.</div>`))
-		return
-	}
-	type emp struct {
-		ID         uint   `json:"id"`
-		Name       string `json:"name"`
-		Department string `json:"department"`
-	}
-	results := make([]emp, 0, len(users))
-	for _, u := range users {
-		results = append(results, emp{ID: u.ID, Name: u.Username, Department: u.Role})
-	}
-	data, _ := json.MarshalIndent(map[string]any{"employees": results}, "", "  ")
-	fmt.Fprint(w, sqliRenderForm(`<pre class="output">`+string(data)+`</pre>`))
-}
-
 type rowScanner interface {
 	Next() bool
 	Scan(...any) error
@@ -175,6 +155,26 @@ func sqliFormatMediumRows(rows rowScanner) string {
 	return `<pre class="output">` + string(data) + `</pre>`
 }
 
+func sqliHard(m *InjectionModule, w http.ResponseWriter, input string) {
+	var users []database.User
+	m.store.DB().Where("id = ?", input).Find(&users)
+	if len(users) == 0 {
+		fmt.Fprint(w, sqliRenderForm(`<div class="error">No results found.</div>`))
+		return
+	}
+	type emp struct {
+		ID         uint   `json:"id"`
+		Name       string `json:"name"`
+		Department string `json:"department"`
+	}
+	results := make([]emp, 0, len(users))
+	for _, u := range users {
+		results = append(results, emp{ID: u.ID, Name: u.Username, Department: u.Role})
+	}
+	data, _ := json.MarshalIndent(map[string]any{"employees": results}, "", "  ")
+	fmt.Fprint(w, sqliRenderForm(`<pre class="output">`+string(data)+`</pre>`))
+}
+
 func sqliRenderForm(output string) string {
 	html := `<div class="vuln-form">
 <h3>Employee Directory</h3>
@@ -189,5 +189,3 @@ func sqliRenderForm(output string) string {
 	}
 	return html
 }
-
-

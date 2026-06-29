@@ -23,8 +23,8 @@ type Session struct {
 
 // AttemptTracker tracks rate-limiting state for a key (username or IP).
 type AttemptTracker struct {
-	Count    int
-	LastFail time.Time
+	Count     int
+	LastFail  time.Time
 	LockUntil time.Time
 }
 
@@ -63,6 +63,12 @@ func (m *Manager) Create(userID int, username, role string) string {
 		CreatedAt: time.Now(),
 	}
 	return token
+}
+
+func generateToken() string {
+	b := make([]byte, 32)
+	_, _ = rand.Read(b)
+	return hex.EncodeToString(b)
 }
 
 // Get returns the session for the token, or nil if not found.
@@ -152,13 +158,6 @@ func (m *Manager) StartCleanup(interval, sessionTTL, attemptTTL time.Duration) {
 	}()
 }
 
-// Stop signals the cleanup goroutine to exit.
-func (m *Manager) Stop() {
-	if m.stopCh != nil {
-		close(m.stopCh)
-	}
-}
-
 func (m *Manager) cleanup(sessionTTL, attemptTTL time.Duration) {
 	now := time.Now()
 	m.mu.Lock()
@@ -181,10 +180,11 @@ func (m *Manager) cleanup(sessionTTL, attemptTTL time.Duration) {
 	}
 }
 
-func generateToken() string {
-	b := make([]byte, 32)
-	_, _ = rand.Read(b)
-	return hex.EncodeToString(b)
+// Stop signals the cleanup goroutine to exit.
+func (m *Manager) Stop() {
+	if m.stopCh != nil {
+		close(m.stopCh)
+	}
 }
 
 type signedPayload struct {
