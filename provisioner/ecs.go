@@ -115,6 +115,34 @@ func (e *ECSClient) WaitForRunning(taskArn string) error {
 	return fmt.Errorf("timed out waiting for task %s to reach RUNNING state", taskArn)
 }
 
+// RunTaskProgress polls a task until it reaches RUNNING, updating the
+// LaunchTracker with each ECS lifecycle transition so the browser can
+// render a real progress bar. Returns on RUNNING or on timeout.
+func (e *ECSClient) RunTaskProgress(taskArn, username string, tracker *LaunchTracker) error {
+	deadline := time.Now().Add(60 * time.Second)
+	for time.Now().Before(deadline) {
+		task, err := e.DescribeTask(taskArn)
+		if err != nil {
+			return err
+		}
+		last := ""
+		if task.LastStatus != nil {
+			last = *task.LastStatus
+		}
+		switch last {
+		case "PROVISIONING":
+			tracker.Set(username, LaunchState{Stage: StageProvisioning, Percent: 30, Message: "Provisioning Fargate capacity..."})
+		case "PENDING":
+			tracker.Set(username, LaunchState{Stage: StageProvisioning, Percent: 45, Message: "Scheduling container..."})
+		case "RUNNING":
+			tracker.Set(username, LaunchState{Stage: StageStarting, Percent: 60, Message: "Container is starting..."})
+			return nil
+		}
+		time.Sleep(2 * time.Second)
+	}
+	return fmt.Errorf("timed out waiting for task %s to reach RUNNING state", taskArn)
+}
+
 // GetTaskIP returns the private IPv4 address of the first container's
 // first network interface for an awsvpc (Fargate) task. Used to route
 // per-user subdomains to the user's task.

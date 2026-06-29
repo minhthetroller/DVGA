@@ -56,15 +56,18 @@ func main() {
 	dynPath := getEnv("DYNAMIC_CONFIG_PATH", "/app/dynamic.yml")
 	dynamic := NewDynamicConfig(dynPath)
 
+	tracker := NewLaunchTracker()
+
 	sessions := NewSessionManager()
 
 	go NewInactivityMonitor(sessions, ecsClient, dynamic, cfg.InactivityTimeout)
 
-	h := NewHandlers(cfg, ecsClient, sessions, dynamic)
+	h := NewHandlers(cfg, ecsClient, sessions, dynamic, tracker)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /{$}", h.signupPage)
 	mux.HandleFunc("POST /signup", h.signup)
+	mux.HandleFunc("GET /launch/{username}", h.launchStatus)
 	mux.HandleFunc("GET /status", h.status)
 	mux.HandleFunc("GET /health", h.health)
 	mux.HandleFunc("GET /ping/{username}", h.ping)
