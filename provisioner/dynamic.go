@@ -52,7 +52,15 @@ func (d *DynamicConfig) flushLocked() {
 
 	dom := domain()
 	var b []byte
-	b = append(b, "http:\n  routers:\n"...)
+	b = append(b, "http:\n"...)
+	if len(d.routers) == 0 {
+		b = append(b, "  routers: {}\n  services: {}\n"...)
+		if err := os.WriteFile(d.path, b, 0o644); err != nil {
+			fmt.Printf("dynamic: write %s: %v\n", d.path, err)
+		}
+		return
+	}
+	b = append(b, "  routers:\n"...)
 	for user := range d.routers {
 		b = append(b, fmt.Sprintf(
 			"    %s:\n"+
