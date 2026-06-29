@@ -7,14 +7,10 @@ services:
       - "80:80"
       - "443:443"
     command:
-      - "--providers.ecs=true"
-      - "--providers.ecs.region={{ aws_region }}"
-      - "--providers.ecs.clusters={{ ecs_cluster_name }}"
-      - "--providers.ecs.exposedByDefault=false"
-      - "--providers.ecs.ecsanywhere=false"
       - "--providers.docker=true"
       - "--providers.docker.exposedByDefault=false"
-      - "--providers.ecs.defaultRule=Host(`{% raw %}{{ index .Labels \"username\" }}{% endraw %}.{{ domain }}`)"
+      - "--providers.file.filename=/etc/traefik/dynamic.yml"
+      - "--providers.file.watch=true"
       - "--entrypoints.web.address=:80"
       - "--entrypoints.websecure.address=:443"
       - "--certificatesresolvers.le.acme.dnschallenge=true"
@@ -29,10 +25,10 @@ services:
       - "--log.level=INFO"
     environment:
       - AWS_REGION={{ aws_region }}
-      - DOCKER_API_VERSION=1.40
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./acme.json:/acme.json
+      - ./dynamic.yml:/etc/traefik/dynamic.yml
     restart: unless-stopped
 
   provisioner:
@@ -49,6 +45,9 @@ services:
       - TASK_DEFINITION_ARN={{ task_definition_arn }}
       - SUBNET_IDS={{ subnet_ids }}
       - SECURITY_GROUP_ID={{ ecs_security_group_id }}
+      - DYNAMIC_CONFIG_PATH=/app/dynamic.yml
+    volumes:
+      - ./dynamic.yml:/app/dynamic.yml
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.provisioner.rule=Host(`{{ domain }}`)"

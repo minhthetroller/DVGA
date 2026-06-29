@@ -10,15 +10,15 @@ import (
 )
 
 type Config struct {
-	AWSRegion          string
-	ECSCluster         string
-	ECRImage           string
-	Domain             string
-	InactivityTimeout  int
-	MaxUsers           int
-	TaskDefinitionARN  string
-	SubnetIDs          []string
-	SecurityGroupID    string
+	AWSRegion         string
+	ECSCluster        string
+	ECRImage          string
+	Domain            string
+	InactivityTimeout int
+	MaxUsers          int
+	TaskDefinitionARN string
+	SubnetIDs         []string
+	SecurityGroupID   string
 }
 
 func loadConfig() *Config {
@@ -53,11 +53,14 @@ func main() {
 		log.Fatalf("failed to create ECS client: %v", err)
 	}
 
+	dynPath := getEnv("DYNAMIC_CONFIG_PATH", "/app/dynamic.yml")
+	dynamic := NewDynamicConfig(dynPath)
+
 	sessions := NewSessionManager()
 
-	go NewInactivityMonitor(sessions, ecsClient, cfg.InactivityTimeout)
+	go NewInactivityMonitor(sessions, ecsClient, dynamic, cfg.InactivityTimeout)
 
-	h := NewHandlers(cfg, ecsClient, sessions)
+	h := NewHandlers(cfg, ecsClient, sessions, dynamic)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /{$}", h.signupPage)

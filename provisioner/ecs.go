@@ -101,7 +101,7 @@ func (e *ECSClient) DescribeTask(taskArn string) (*ecstypes.Task, error) {
 }
 
 func (e *ECSClient) WaitForRunning(taskArn string) error {
-	deadline := time.Now().Add(30 * time.Second)
+	deadline := time.Now().Add(60 * time.Second)
 	for time.Now().Before(deadline) {
 		task, err := e.DescribeTask(taskArn)
 		if err != nil {
@@ -113,4 +113,22 @@ func (e *ECSClient) WaitForRunning(taskArn string) error {
 		time.Sleep(2 * time.Second)
 	}
 	return fmt.Errorf("timed out waiting for task %s to reach RUNNING state", taskArn)
+}
+
+// GetTaskIP returns the private IPv4 address of the first container's
+// first network interface for an awsvpc (Fargate) task. Used to route
+// per-user subdomains to the user's task.
+func (e *ECSClient) GetTaskIP(taskArn string) (string, error) {
+	task, err := e.DescribeTask(taskArn)
+	if err != nil {
+		return "", err
+	}
+	if len(task.Containers) == 0 {
+		return "", fmt.Errorf("task %s has no containers", taskArn)
+	}
+	nis := task.Containers[0].NetworkInterfaces
+	if len(nis) == 0 || aws.ToString(nis[0].PrivateIpv4Address) == "" {
+		return "", fmt.Errorf("task %s container has no network interface IP", taskArn)
+	}
+	return aws.ToString(nis[0].PrivateIpv4Address), nil
 }

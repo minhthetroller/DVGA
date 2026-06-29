@@ -74,7 +74,7 @@ func (s *SessionManager) Count() int {
 	return len(s.sessions)
 }
 
-func NewInactivityMonitor(sessions *SessionManager, ecsClient *ECSClient, timeoutMin int) {
+func NewInactivityMonitor(sessions *SessionManager, ecsClient *ECSClient, dynamic *DynamicConfig, timeoutMin int) {
 	ticker := time.NewTicker(2 * time.Minute)
 	defer ticker.Stop()
 
@@ -87,6 +87,7 @@ func NewInactivityMonitor(sessions *SessionManager, ecsClient *ECSClient, timeou
 					log.Printf("failed to stop task for user %s: %v", sess.Username, err)
 					continue
 				}
+				dynamic.Remove(sess.Username)
 				sessions.Remove(sess.Username)
 			}
 		}

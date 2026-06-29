@@ -14,15 +14,17 @@ type Handlers struct {
 	cfg      *Config
 	ecs      *ECSClient
 	sessions *SessionManager
+	dynamic  *DynamicConfig
 	tmpl     *template.Template
 }
 
-func NewHandlers(cfg *Config, ecsClient *ECSClient, sessions *SessionManager) *Handlers {
+func NewHandlers(cfg *Config, ecsClient *ECSClient, sessions *SessionManager, dynamic *DynamicConfig) *Handlers {
 	tmpl := template.Must(template.ParseFiles("templates/signup.html"))
 	return &Handlers{
 		cfg:      cfg,
 		ecs:      ecsClient,
 		sessions: sessions,
+		dynamic:  dynamic,
 		tmpl:     tmpl,
 	}
 }
@@ -83,6 +85,18 @@ func (h *Handlers) signup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	ip, err := h.ecs.GetTaskIP(taskArn)
+	if err != nil {
+		log.Printf("could not get task IP for %s: %v", username, err)
+		h.ecs.StopTask(taskArn)
+		h.tmpl.Execute(w, signupData{
+			Error:  "Instance launch timed out",
+			Domain: h.cfg.Domain,
+		})
+		return
+	}
+
+	h.dynamic.Add(username, ip)
 	h.sessions.Add(username, taskArn)
 	http.Redirect(w, r, "https://"+username+"."+h.cfg.Domain, http.StatusFound)
 }
